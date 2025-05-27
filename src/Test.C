@@ -7,10 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <stdexcept>
 #include "Parser.H"
 #include "Printer.H"
 #include "Absyn.H"
-#include "Typechecker.C"
+#include "Typechecker.H"
 // #include "CodeGen.C" 
 
 void usage() {
@@ -52,12 +53,12 @@ int main(int argc, char ** argv)
   try{
   Prog *parse_tree = pProg(input);
   if (!parse_tree){
-    throw TypeError("Parse Error");
+    throw std::runtime_error("hi");
   }
   Skeleton checker;
   parse_tree->accept(&checker);
   }
-  catch(const TypeError& e){
+  catch(...){
     std::cerr << "ERROR";
     return 1;
   }

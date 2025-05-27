@@ -1,3 +1,4 @@
+
 -- programs ------------------------------------------------
 
 entrypoints Prog ;
@@ -58,11 +59,15 @@ Bool.      Type ::= "boolean" ;
 
 Void.      Type ::= "void" ;
 
+Str.	   Type ::= "string" ;
+
 internal   Fun. Type ::= Type "(" [Type] ")" ;
 
 separator  Type "," ;
 
 -- Expressions ---------------------------------------------
+
+ETypeAnn.  Expr7 ::= "(" Expr ":" Type ")" ;
 
 EVar.      Expr6 ::= Ident ;
 
@@ -92,7 +97,7 @@ EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
 
 EOr.       Expr ::= Expr1 "||" Expr ;
 
-coercions  Expr 6 ;
+coercions  Expr 7 ;
 
 separator  Expr "," ;
 

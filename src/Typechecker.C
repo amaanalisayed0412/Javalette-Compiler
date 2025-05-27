@@ -18,6 +18,123 @@ void Skeleton::visitAddOp(AddOp *t) {} //abstract class
 void Skeleton::visitMulOp(MulOp *t) {} //abstract class
 void Skeleton::visitRelOp(RelOp *t) {} //abstract class
 
+enum InferredType { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TUNKNOWN };
+
+Type* inferredtotype(InferredType type1);
+
+int num_passes = 0;
+
+Type* inferredtotype(InferredType type1){
+  Type* t;
+  if (type1 == TINT){
+    t = new Int;
+  }
+  else if (type1 == TDOUBLE){
+    t = new Doub;
+  }
+  else if (type1 == TSTR){
+    t = new Str;
+  }
+  else if (type1 == TBOOL){
+    t = new Bool;
+  }
+  else if (type1 == TVOID){
+    t = new Void;
+  }
+  return t;
+}
+
+
+struct FunctionInfo {
+    Type* returnType;
+    std::vector<InferredType> paramTypes;
+};
+
+
+std::string typetostring(InferredType t){
+  if (t == TINT){
+    return "int";
+  }
+  else if (t == TDOUBLE){
+    return "double";
+  }
+  else if (t == TBOOL){
+    return "bool";
+  }
+  else if (t == TSTR){
+    return "string";
+  }
+  else if (t == TVOID){
+    return "void";
+  }
+  else {
+    return "unknown";
+  }
+}
+
+
+
+class TypeError : public std::runtime_error {
+public:
+    explicit TypeError(const std::string& msg)
+        : std::runtime_error("Error: " + msg) {}
+};
+
+std::vector<std::map<std::string, InferredType>> contextStack;
+
+std::map<std::string, FunctionInfo*> funcEnv;
+
+std::vector<Type*> currargvec1;
+
+std::vector<std::vector<Type*>> currargvec;
+
+InferredType infer(Type *t) {
+    if (dynamic_cast<Int*>(t)) return TINT;
+    if (dynamic_cast<Doub*>(t)) return TDOUBLE;
+    if (dynamic_cast<Bool*>(t)) return TBOOL;
+    if (dynamic_cast<Str*>(t)) return TSTR;
+    if (dynamic_cast<Void*>(t)) return TVOID;
+    return TUNKNOWN;
+}
+
+InferredType lookupVariable(Ident var){
+  for (auto it = contextStack.rbegin(); it != contextStack.rend(); ++it) {
+        if (it->count(var)) {
+            return it->at(var);
+        }
+    }
+  return TUNKNOWN;
+}
+
+InferredType lookupVariableshall(Ident var){
+  bool b = false;
+  for (auto it = contextStack.rbegin(); it != contextStack.rend(); ++it) {
+  	if (b) return TUNKNOWN;
+        if (it->count(var)) {
+            return it->at(var);
+        }
+        b = true;
+    }
+  return TUNKNOWN;
+}
+
+
+
+FunctionInfo* lookupFunc(Ident func){
+  for (auto p : funcEnv){
+    if (p.first == func){
+      return p.second;
+    }
+  }
+  return nullptr;
+}
+
+InferredType last_type = TUNKNOWN;
+InferredType decl_type = TUNKNOWN;
+InferredType ret_type = TUNKNOWN;
+
+bool AlwaysReturns = false;
+
 void checkMainExists(){
   auto it = funcEnv.find("main");
   if (it == funcEnv.end()){
@@ -77,14 +194,14 @@ void Skeleton::visitFnDef(FnDef *fn_def)
       FunctionInfo* f = new FunctionInfo();
       f->returnType = fn_def->type_;
       fn_def->listarg_->accept(this);
-      for (auto p: currargvec){
+      for (auto p: currargvec1){
         (f->paramTypes).push_back(infer(p));
       }
-      for (auto p: currargvec){
+      for (auto p: currargvec1){
 
         delete p;
       }
-      currargvec.clear();
+      currargvec1.clear();
       funcEnv[fn_def->ident_] = f; 
     }
     
@@ -107,7 +224,7 @@ void Skeleton::visitFnDef(FnDef *fn_def)
       fn_def->blk_->accept(this);
     }
 
-    if (AlwaysReturns == false){
+    if (AlwaysReturns == false and ret_type != TVOID){
       throw TypeError(fn_def->ident_ + " may not return a value on all paths.");
     }
     AlwaysReturns = false;
@@ -119,11 +236,16 @@ void Skeleton::visitArgument(Argument *argument)
   /* Code For Argument Goes Here */
   if (num_passes == 0){
     last_type = infer(argument -> type_);
+    if (last_type == TVOID){
+    	throw TypeError("Argument cannot be of void type");
+    }
   }
   else if (num_passes == 1){
   argument->type_->accept(this);
   visitIdent(argument->ident_);
-
+  if (last_type != TUNKNOWN){
+    throw TypeError("Duplicate parameters in function definition.");
+  }
   contextStack.back()[argument->ident_] = infer(argument->type_);
   }
   else{
@@ -134,8 +256,9 @@ void Skeleton::visitArgument(Argument *argument)
 void Skeleton::visitBlock(Block *block)
 {
   /* Code For Block Goes Here */
-
+  contextStack.push_back({});
   block->liststmt_->accept(this);
+  contextStack.pop_back();
 
 }
 
@@ -149,8 +272,9 @@ void Skeleton::visitEmpty(Empty *empty)
 void Skeleton::visitBStmt(BStmt *b_stmt)
 {
   /* Code For BStmt Goes Here */
-
+  contextStack.push_back({});
   b_stmt->blk_->accept(this);
+  contextStack.pop_back();
 
 }
 
@@ -160,6 +284,9 @@ void Skeleton::visitDecl(Decl *decl)
   if (num_passes == 1){
     decl->type_->accept(this);
     decl_type = infer(decl->type_);
+    if (decl_type == TVOID){
+    	throw TypeError("Cannot declare void variable");
+    }
     decl->listitem_->accept(this);
   }
 }
@@ -246,7 +373,6 @@ void Skeleton::visitCond(Cond *cond)
     cond->stmt_->accept(this);
   }
   else if (num_passes == 2){
-    cond->stmt_->accept(this);
   }
 }
 
@@ -285,7 +411,7 @@ void Skeleton::visitWhile(While *while_)
     while_->stmt_->accept(this);
   }
   else if (num_passes == 2){
-    while_->stmt_->accept(this);
+    
   }
 }
 
@@ -294,6 +420,9 @@ void Skeleton::visitSExp(SExp *s_exp)
   /* Code For SExp Goes Here */
 
   s_exp->expr_->accept(this);
+  if (last_type != TVOID){
+  	throw TypeError("Non-void expression statement.");
+  }
   s_exp->expr_ = new ETypeAnn(s_exp->expr_, inferredtotype(last_type));
 }
 
@@ -302,6 +431,9 @@ void Skeleton::visitNoInit(NoInit *no_init)
   /* Code For NoInit Goes Here */
   if (num_passes == 1){
     visitIdent(no_init->ident_);
+    if (lookupVariableshall(no_init->ident_) != TUNKNOWN){
+    	throw TypeError("Multiple declaration in same scope");
+    }
     contextStack.back()[no_init->ident_] = decl_type;
 
   }
@@ -313,6 +445,9 @@ void Skeleton::visitInit(Init *init)
   /* Code For Init Goes Here */
   if (num_passes == 1){
     visitIdent(init->ident_);
+    if (lookupVariableshall(init->ident_) != TUNKNOWN){
+    	throw TypeError("Multiple declaration in same scope");
+    }
     init->expr_->accept(this);
     if (last_type != decl_type){
       throw TypeError("Wrong literal type initialised.");
@@ -432,21 +567,19 @@ void Skeleton::visitEApp(EApp *e_app)
     }
     e_app->listexpr_->accept(this);
     FunctionInfo* res = lookupFunc(e_app->ident_);
-    if ((res->paramTypes).size() != currargvec.size()){
+    if ((res->paramTypes).size() != currargvec.back().size()){
       throw TypeError("Function call to " + e_app->ident_ + " does not match the definition (insufficient arguments).");
     }
 
     for (size_t i = 0; i < res->paramTypes.size(); ++i) {
-      if (!(infer(currargvec[i]) == res->paramTypes[i])) {
+      if (!(infer(currargvec.back()[i]) == res->paramTypes[i])) {
         throw TypeError("Function " + e_app->ident_ + ": Argument " + std::to_string(i + 1) +
                         " has incorrect type.");
       }
     }
 
-    for (auto p: currargvec){
-      delete p;
-    }
-    currargvec.clear();
+
+    currargvec.pop_back();
 
     last_type = infer(res->returnType);
   }
@@ -465,6 +598,9 @@ void Skeleton::visitNeg(Neg *neg)
   /* Code For Neg Goes Here */
 
   neg->expr_->accept(this);
+  if (last_type == TVOID){
+  	throw TypeError("Invalid operand for neg");
+  }
 
 }
 
@@ -473,7 +609,9 @@ void Skeleton::visitNot(Not *not_)
   /* Code For Not Goes Here */
 
   not_->expr_->accept(this);
-
+  if (last_type == TVOID){
+  	throw TypeError("Invalid operand for not");
+  }
 }
 
 void Skeleton::visitEMul(EMul *e_mul)
@@ -485,8 +623,14 @@ void Skeleton::visitEMul(EMul *e_mul)
     e_mul->mulop_->accept(this);
     e_mul->expr_2->accept(this);
     InferredType type2 = last_type;
-    if (((type1 != TINT) && (type2 != TINT)) || ((type1 != TDOUBLE) && (type2 != TDOUBLE))) {
+    if (((type1 != TINT) || (type2 != TINT)) && ((type1 != TDOUBLE) || (type2 != TDOUBLE))) {
       throw TypeError("Incorrect operand type for multiplication");
+    }
+
+    if (dynamic_cast<Mod*>(e_mul->mulop_)){
+      if (type1 != TINT || type2 != TINT){
+        throw TypeError("Incorrect operand type for modulus");
+      }
     }
     Type *t;
     t = inferredtotype(type1);
@@ -528,7 +672,7 @@ void Skeleton::visitERel(ERel *e_rel)
     e_rel->relop_->accept(this);
     e_rel->expr_2->accept(this);
     InferredType type2 = last_type;
-    if (type1 != type2){
+    if (type1 != type2 || (type1 == TBOOL && !dynamic_cast<EQU*>(e_rel->relop_))){
       throw TypeError("Incorrect operand type for ERel");
       
     }
@@ -674,7 +818,7 @@ void Skeleton::visitListArg(ListArg *list_arg)
     for (ListArg::iterator i = list_arg->begin() ; i != list_arg->end() ; ++i)
     {
       (*i)->accept(this);
-      currargvec.push_back(inferredtotype(last_type));
+      currargvec1.push_back(inferredtotype(last_type));
     }
 
   }
@@ -729,11 +873,12 @@ void Skeleton::visitListType(ListType *list_type)
 void Skeleton::visitListExpr(ListExpr *list_expr)
 {
   if (num_passes == 1){
+    currargvec.push_back({});
     for (ListExpr::iterator i = list_expr->begin() ; i != list_expr->end() ; ++i)
     {
       (*i)->accept(this);
       (*i) = new ETypeAnn((*i), inferredtotype(last_type));
-      currargvec.push_back(inferredtotype(last_type));
+      currargvec.back().push_back(inferredtotype(last_type));
     }
   }
   
