@@ -1,5 +1,5 @@
-#ifndef SKELETON_HEADER
-#define SKELETON_HEADER
+#ifndef TYPECHECKER_HEADER
+#define TYPECHECKER_HEADER
 /* You might want to change the above name. */
 
 #include "Absyn.H"

@@ -4,7 +4,7 @@
    List->accept() does NOT traverse the list. This allows different
    algorithms to use context information differently. */
 
-#include "Skeleton.H"
+#include "Typechecker.H"
 
 void Skeleton::visitProg(Prog *t) {} //abstract class
 void Skeleton::visitTopDef(TopDef *t) {} //abstract class
@@ -34,16 +34,36 @@ void checkMainExists(){
 void Skeleton::visitProgram(Program *program)
 {
   /* Code For Program Goes Here */
+  FunctionInfo* f = new FunctionInfo();
+  f->returnType = new Void;
+  f->paramTypes.push_back(TINT);
+  funcEnv["printInt"] = f;
+
+  FunctionInfo* f1 = new FunctionInfo();
+  f1->returnType = new Void;
+  f1->paramTypes.push_back(TDOUBLE);
+  funcEnv["printDouble"] = f1;
+
+  FunctionInfo* f2 = new FunctionInfo();
+  f2->returnType = new Void;
+  f2->paramTypes.push_back(TSTR);
+  funcEnv["printString"] = f2;
+
+  FunctionInfo* f3 = new FunctionInfo();
+  f3->returnType = new Int;
+  funcEnv["readInt"] = f3;
+
+  FunctionInfo* f4 = new FunctionInfo();
+  f4->returnType = new Doub;
+  funcEnv["readDouble"] = f4;
+  
   program->listtopdef_->accept(this);
-  printf("First pass done\n");
 
   checkMainExists();
   num_passes += 1;
   program->listtopdef_->accept(this);
-  printf("Second pass done\n");
   num_passes += 1;
   program->listtopdef_->accept(this);
-  printf("Third pass done.\n");
 }
 
 void Skeleton::visitFnDef(FnDef *fn_def)
@@ -283,11 +303,7 @@ void Skeleton::visitNoInit(NoInit *no_init)
   if (num_passes == 1){
     visitIdent(no_init->ident_);
     contextStack.back()[no_init->ident_] = decl_type;
-    std::cout<<"Symbol Table:\n";
-    for (auto t: contextStack.back()){
-      std::cout<<t.first<<"\n";
-      std::cout<<typetostring(t.second) << "\n\n";
-    }
+
   }
   
 }
@@ -305,11 +321,7 @@ void Skeleton::visitInit(Init *init)
       init->expr_ = new ETypeAnn(init->expr_, inferredtotype(last_type));
     }
     contextStack.back()[init->ident_] = last_type;
-    std::cout<<"Symbol Table:\n";
-    for (auto t: contextStack.back()){
-      std::cout<<t.first<<"\n";
-      std::cout<<typetostring(t.second) << "\n\n";
-    }
+
   }
   
 }
@@ -426,7 +438,6 @@ void Skeleton::visitEApp(EApp *e_app)
 
     for (size_t i = 0; i < res->paramTypes.size(); ++i) {
       if (!(infer(currargvec[i]) == res->paramTypes[i])) {
-        std::cout << res->paramTypes[i] << std::endl;
         throw TypeError("Function " + e_app->ident_ + ": Argument " + std::to_string(i + 1) +
                         " has incorrect type.");
       }

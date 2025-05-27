@@ -10,8 +10,8 @@
 #include "Parser.H"
 #include "Printer.H"
 #include "Absyn.H"
-#include "Skeleton.C"
-#include "CodeGen.C" 
+#include "Typechecker.C"
+// #include "CodeGen.C" 
 
 void usage() {
   printf("usage: Call with one of the following argument combinations:\n");
@@ -23,8 +23,9 @@ void usage() {
 
 int main(int argc, char ** argv)
 {
-  FILE *input;
-  int quiet = 0;
+  FILE *input = stdin;
+
+  /* int quiet = 0;
   char *filename = NULL;
 
   if (argc > 1) {
@@ -46,36 +47,21 @@ int main(int argc, char ** argv)
       usage();
       exit(1);
     }
-  } else input = stdin;
+  } else input = stdin; */
   /* The default entry point is used. For other options see Parser.H */
+  try{
   Prog *parse_tree = pProg(input);
-  if (parse_tree)
-  {
-    printf("\nParse Successful!\n");
-    if (!quiet) {
-      printf("\n[Abstract Syntax]\n");
-      ShowAbsyn *s = new ShowAbsyn();
-      printf("%s\n\n", s->show(parse_tree));
-      printf("[Linearized Tree]\n");
-      PrintAbsyn *p = new PrintAbsyn();
-      printf("%s\n\n", p->print(parse_tree));
-    }
+  if (!parse_tree){
+    throw TypeError("Parse Error");
   }
-
-  // Perform semantic analysis
   Skeleton checker;
-  parse_tree->accept(&checker);  // Walk the AST and perform type checking
-
-  printf("Type checking successful.\n");
-  printf("\n[Abstract Syntax]\n");
-      ShowAbsyn *s = new ShowAbsyn();
-      printf("%s\n\n", s->show(parse_tree));
-  printf("[Linearized Tree]\n");
-      PrintAbsyn *p = new PrintAbsyn();
-      printf("%s\n\n", p->print(parse_tree));
-  
-  CodeGen llvm;
-  parse_tree->accept(&llvm);
-  return 1;
+  parse_tree->accept(&checker);
+  }
+  catch(const TypeError& e){
+    std::cerr << "ERROR";
+    return 1;
+  }
+  std::cerr << "OK";
+  return 0;
 }
 
