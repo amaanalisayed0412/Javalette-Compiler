@@ -168,10 +168,12 @@ void Skeleton::visitProgram(Program *program)
 
   FunctionInfo* f3 = new FunctionInfo();
   f3->returnType = new Int;
+  f3->paramTypes = {};
   funcEnv["readInt"] = f3;
 
   FunctionInfo* f4 = new FunctionInfo();
   f4->returnType = new Doub;
+  f4->paramTypes = {};
   funcEnv["readDouble"] = f4;
   
   program->listtopdef_->accept(this);
@@ -418,12 +420,15 @@ void Skeleton::visitWhile(While *while_)
 void Skeleton::visitSExp(SExp *s_exp)
 {
   /* Code For SExp Goes Here */
-
+  if (num_passes == 1){
   s_exp->expr_->accept(this);
   if (last_type != TVOID){
   	throw TypeError("Non-void expression statement.");
   }
-  s_exp->expr_ = new ETypeAnn(s_exp->expr_, inferredtotype(last_type));
+  s_exp->expr_ = new ETypeAnn(s_exp->expr_, new Void);
+  }
+  
+  
 }
 
 void Skeleton::visitNoInit(NoInit *no_init)
@@ -914,6 +919,5 @@ void Skeleton::visitIdent(Ident x)
   /* Code for Ident Goes Here */
   last_type = lookupVariable(x);
 }
-
 
 

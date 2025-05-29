@@ -12,7 +12,7 @@
 #include "Printer.H"
 #include "Absyn.H"
 #include "Typechecker.H"
-// #include "CodeGen.C" 
+#include "CodeGen.H" 
 
 void usage() {
   printf("usage: Call with one of the following argument combinations:\n");
@@ -50,8 +50,9 @@ int main(int argc, char ** argv)
     }
   } else input = stdin; */
   /* The default entry point is used. For other options see Parser.H */
+  Prog *parse_tree;
   try{
-  Prog *parse_tree = pProg(input);
+  parse_tree = pProg(input);
   if (!parse_tree){
     throw std::runtime_error("hi");
   }
@@ -63,6 +64,7 @@ int main(int argc, char ** argv)
     return 1;
   }
   std::cerr << "OK";
+  CodeGen llvm;
+  parse_tree->accept(&llvm);
   return 0;
 }
-
