@@ -22,7 +22,7 @@ void CodeGen::visitAddOp(AddOp *t) {} //abstract class
 void CodeGen::visitMulOp(MulOp *t) {} //abstract class
 void CodeGen::visitRelOp(RelOp *t) {} //abstract class
 
-enum InferredType1 { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TUNKNOWN };
+enum InferredType1 { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TINTA, TDOUBLEA, TBOOLA, TUNKNOWN };
 
 InferredType1 infer1(Type *t) {
     if (dynamic_cast<Int*>(t)) return TINT;
@@ -30,6 +30,13 @@ InferredType1 infer1(Type *t) {
     if (dynamic_cast<Bool*>(t)) return TBOOL;
     if (dynamic_cast<Str*>(t)) return TSTR;
     if (dynamic_cast<Void*>(t)) return TVOID;
+    if (dynamic_cast<Array*>(t)) {
+        Array* arr = dynamic_cast<Array*>(t);
+        if (dynamic_cast<Int*>(arr->type_)) return TINTA;
+        if (dynamic_cast<Doub*>(arr->type_)) return TDOUBLEA;
+        if (dynamic_cast<Bool*>(arr->type_)) return TBOOLA;
+        return TUNKNOWN; // Unknown array type
+    }
     return TUNKNOWN;
 }
 
@@ -88,6 +95,15 @@ std::string llvmtype(InferredType1 t){
   else if (t == TSTR){
     return "i8*";
   }
+  else if (t == TINTA){
+    return "i32*";
+  }
+  else if (t == TDOUBLEA){
+    return "double*";
+  }
+  else if (t == TBOOLA){
+    return "i1*";
+  }
   else{
     return "i32";
   }
@@ -97,6 +113,8 @@ std::string llvmtype(InferredType1 t){
 std::vector<std::unordered_map<std::string, std::string>> contextStack_llvm;
 
 std::vector<std::string> argstrings;
+
+std::string lastPtr;
 
 std::vector<std::vector<std::string>> funcargsreg;
 
@@ -160,6 +178,7 @@ void CodeGen::visitProgram(Program *program)
   num_passes1 = 0;
   program->listtopdef_->accept(this);
   emitGlobalStrings();
+  emit({"declare i8* @malloc(i32)"});
   emit({"declare void @printInt(i32)"});
   emit({"declare void @printDouble(double)"});  
   emit({"declare void @printString(i8*)"});
@@ -365,6 +384,24 @@ void CodeGen::visitAss(Ass *ass)
   
 }
 
+void CodeGen::visitAss1(Ass1 *ass)
+{
+  /* Code For Ass1 Goes Here */
+
+  
+  ass->expr_1->accept(this);
+  std::string gep = lastPtr;
+  std::string llvmType1 = last__type;
+  ass->expr_2->accept(this);
+  std::string valueReg = lastValue;
+
+  std::string llvmType = last__type;
+
+  // Store the value into the computed address
+  liststmt.push_back("  store " + llvmType + " " + valueReg + ", " + llvmType1 + "* " + gep + "");
+
+}
+
 void CodeGen::visitIncr(Incr *incr)
 {
   /* Code For Incr Goes Here */
@@ -398,6 +435,41 @@ void CodeGen::visitDecr(Decr *decr)
   liststmt.push_back("  store " + type_str + " " + temp2 + ", " + type_str + "* " + regName);  
   }
 }
+
+
+void CodeGen::visitIncr1(Incr1 *incr)
+{
+  /* Code For Incr1 Goes Here */
+  if (num_passes1 == 1){
+    last__type = llvmtype(TINT);
+    incr->expr_->accept(this);
+  std::string elemPtr = lastPtr;  // Pointer to a[i] produced by EIndex
+  std::string val = lastValue;   // Value of a[i]
+
+  std::string one = new_reg();
+  liststmt.push_back("  " + one + " = add i32 " + val + ", 1");
+
+  liststmt.push_back("  store i32 " + one + ", i32* " + elemPtr);
+  }
+  
+}
+
+void CodeGen::visitDecr1(Decr1 *decr)
+{
+  /* Code For Decr1 Goes Here */
+  last__type = llvmtype(TINT);
+  if (num_passes1 == 1){
+  decr->expr_->accept(this);
+  std::string elemPtr = lastPtr;  // Pointer to a[i] produced by EIndex
+  std::string val = lastValue;   // Value of a[i]
+  std::string one = new_reg();
+  liststmt.push_back("  " + one + " = sub i32 " + val + ", 1");
+  liststmt.push_back("  store i32 " + one + ", i32* " + elemPtr);
+  }
+
+}
+
+
 
 void CodeGen::visitRet(Ret *ret)
 {
@@ -502,6 +574,85 @@ void CodeGen::visitWhile(While *while_)
   }
 }
 
+void CodeGen::visitFor(For *for_) {
+  if (num_passes1 != 1) for_->stmt_->accept(this);
+
+  std::string cond_label = new_label();
+  std::string body_label = new_label();
+  std::string step_label = new_label();
+  std::string end_label = new_label();
+
+  // Evaluate array expression
+  for_->expr_->accept(this);
+  std::string arrReg = lastValue;
+  std::string arrType = last__type; // e.g., i32*
+
+  // Allocate loop index (i = 0)
+  std::string idx = new_reg();
+  liststmt.push_back("  " + idx + " = alloca i32");
+  liststmt.push_back("  store i32 0, i32* " + idx);
+
+  // Allocate and bind loop variable (e.g., int x;)
+  std::string varType = llvmtype(infer1(for_->type_));
+  std::string varAlloc = new_reg();
+  liststmt.push_back("  " + varAlloc + " = alloca " + varType);
+  contextStack_llvm.push_back({});
+  contextStack_llvm.back()[for_->ident_] = varAlloc;
+
+  // Branch to condition
+  liststmt.push_back("  br label %" + cond_label);
+
+  // Condition block
+  liststmt.push_back(cond_label + ":");
+  std::string idxVal = new_reg();
+  liststmt.push_back("  " + idxVal + " = load i32, i32* " + idx);
+
+  std::string lenPtr = new_reg();
+  liststmt.push_back("  " + lenPtr + " = getelementptr i32, i32* " + arrReg + ", i32 0");
+  std::string lenVal = new_reg();
+  liststmt.push_back("  " + lenVal + " = load i32, i32* " + lenPtr);
+  std::string temp = new_reg();
+  liststmt.push_back("  " + temp + " = getelementptr i32, i32* " + arrReg + ", i32 1");
+  std::string temp2 = new_reg();
+  liststmt.push_back("  " + temp2 + " = bitcast i32* " + temp + " to " + arrType);
+
+  std::string cmp = new_reg();
+  liststmt.push_back("  " + cmp + " = icmp slt i32 " + idxVal + ", " + lenVal);
+  liststmt.push_back("  br i1 " + cmp + ", label %" + body_label + ", label %" + end_label);
+
+  // Body block
+  liststmt.push_back(body_label + ":");
+  std::string adjIdx = new_reg();
+  liststmt.push_back("  " + adjIdx + " = add i32 " + idxVal + ", 0");  // Skip length at offset 0
+
+  std::string elemPtr = new_reg();
+  std::string elemType(llvmtype(infer1(for_->type_)));
+  liststmt.push_back("  " + elemPtr + " = getelementptr " + elemType + ", " + arrType + " " + temp2 + ", i32 " + adjIdx);
+
+  std::string elemVal = new_reg();
+  liststmt.push_back("  " + elemVal + " = load " + varType + ", " + varType + "* " + elemPtr);
+
+  liststmt.push_back("  store " + varType + " " + elemVal + ", " + varType + "* " + varAlloc);
+
+  // Visit loop body
+  for_->stmt_->accept(this);
+
+  liststmt.push_back("  br label %" + step_label);
+
+  // Step block: increment index
+  liststmt.push_back(step_label + ":");
+  std::string nextIdx = new_reg();
+  liststmt.push_back("  " + nextIdx + " = add i32 " + idxVal + ", 1");
+  liststmt.push_back("  store i32 " + nextIdx + ", i32* " + idx);
+  liststmt.push_back("  br label %" + cond_label);
+
+  // End block
+  liststmt.push_back(end_label + ":");
+
+  contextStack_llvm.pop_back();
+}
+
+
 void CodeGen::visitSExp(SExp *s_exp)
 {
   /* Code For SExp Goes Here */
@@ -520,7 +671,7 @@ void CodeGen::visitNoInit(NoInit *no_init)
   std::string varName = no_init->ident_;
   std::string allocName = new_reg();
 
-  liststmt.push_back("  " + allocName + " = alloca " + declared_type);
+  
 
   std::string zero_value;
   if (declared_type == "i32") {
@@ -529,11 +680,30 @@ void CodeGen::visitNoInit(NoInit *no_init)
     zero_value = "0.0";
   } else if (declared_type == "i1") {
     zero_value = "false";
-  } else {
+  } 
+  else if (declared_type == "i32*") {
+    visitENewArr(new ENewArr(new Int, new ELitInt(0)));
+    zero_value = lastValue;
+  } 
+  else if (declared_type == "double*") {
+    visitENewArr(new ENewArr(new Doub, new ELitInt(0)));
+    zero_value = lastValue;
+  } 
+  else if (declared_type == "i1*") {
+    visitENewArr(new ENewArr(new Bool, new ELitInt(0)));
+    zero_value = lastValue;
+  }
+  else {
     zero_value = "zeroinitializer"; // fallback (for structs/arrays etc.)
   }
-
-  liststmt.push_back("  store " + declared_type+ " " + zero_value + ", " + declared_type + "* " + allocName);
+  if (declared_type == "i32*" || declared_type == "double*" || declared_type == "i1*") {
+    liststmt.push_back("  " + allocName + " = alloca " + "i32*");
+    liststmt.push_back("  store i32* " + zero_value + ", " + "i32** " + allocName);
+  }
+  else{
+    liststmt.push_back("  " + allocName + " = alloca " + declared_type);
+    liststmt.push_back("  store " + declared_type+ " " + zero_value + ", " + declared_type + "* " + allocName);
+  }
   contextStack_llvm.back()[varName] = allocName;
   }
   /* if (num_passes1 == 1){
@@ -558,11 +728,15 @@ void CodeGen::visitInit(Init *init)
   init->expr_->accept(this);
   resultReg = lastValue;
 
-  liststmt.push_back("  " + allocName + " = alloca " + declared_type);
+  if (declared_type == "i32*" || declared_type == "double*" || declared_type == "i1*") {
+    liststmt.push_back("  " + allocName + " = alloca " + "i32*");
+    liststmt.push_back("  store i32* " + resultReg + ", " + "i32** " + allocName);
+  }
+  else{
+    liststmt.push_back("  " + allocName + " = alloca " + declared_type);
+    liststmt.push_back("  store " + declared_type+ " " + resultReg + ", " + declared_type + "* " + allocName);
+  }
 
-    // assume `lastValue` holds the result of last expr
-
-  liststmt.push_back("  store " + declared_type + " " + resultReg + ", " + declared_type + "* " + allocName);
 
   contextStack_llvm.back()[varName] = allocName;
   }
@@ -624,6 +798,12 @@ void CodeGen::visitStr(Str *str)
   last_type1 = TSTR;
 }
 
+void CodeGen::visitArray(Array *array)
+{
+  /* Code For Array Goes Here */
+
+}
+
 void CodeGen::visitFun(Fun *fun)
 {
   /* Code For Fun Goes Here */
@@ -651,9 +831,14 @@ void CodeGen::visitEVar(EVar *e_var)
 {
   /* Code For EVar Goes Here */
   if (num_passes1 == 1){
+  
   std::string ptr = lookupvar(e_var->ident_);  // get alloca'd pointer from symbol table
   std::string temp = new_reg();
+  if (last__type == "i32*" || last__type == "double*" || last__type == "i1*") {
+    liststmt.push_back("  " + temp + " = load i32*, i32** " + ptr);
+  } else {
   liststmt.push_back("  " + temp + " = load " + last__type + ", " + last__type + "* " + ptr);
+  }
   lastValue = temp;  
   }
 }
@@ -736,6 +921,102 @@ void CodeGen::visitEString(EString *e_string)
 
   lastValue = tmpName;
   }
+}
+
+void CodeGen::visitENewArr(ENewArr *e_new_arr)
+{
+  /* Code For ENewArr Goes Here */
+  if (num_passes1 == 1){
+    e_new_arr->expr_->accept(this);
+    std::string sizeReg = lastValue;
+
+    std::string llvmType = llvmtype(infer1(e_new_arr->type_));
+    int sizeBytes = 0;
+    if (llvmType == "i32") {
+        sizeBytes = 4;  // Size of int in bytes
+    } else if (llvmType == "double") {
+        sizeBytes = 8;  // Size of double in bytes
+    } else if (llvmType == "i1") {
+        sizeBytes = 4;  // Size of boolean in bytes
+    } 
+
+    std::string oneReg = new_reg();
+    liststmt.push_back("  " + oneReg + " = add i32 " + sizeReg + ", 1");
+
+    std::string fourReg = new_reg();
+    liststmt.push_back("  " + fourReg + " = mul i32 " + "1, 4");
+
+    std::string allocSize = new_reg();
+    liststmt.push_back("  " + allocSize + " = mul i32 " + sizeReg + ", " + std::to_string(sizeBytes));
+
+    std::string allocSizePlusFour = new_reg();
+
+    liststmt.push_back("  " + allocSizePlusFour + " = add i32 " + allocSize + ", " + fourReg);
+
+    std::string rawPtr = new_reg();
+    liststmt.push_back("  " + rawPtr + " = call i8* @malloc(i32 " + allocSizePlusFour + ")");
+
+    std::string arrPtr = new_reg();
+    liststmt.push_back("  " + arrPtr + " = bitcast i8* " + rawPtr + " to " + "i32*");
+
+    liststmt.push_back("  store i32 " + sizeReg + ", i32* " + arrPtr);
+
+    std::string dataPtr = new_reg();
+    liststmt.push_back("  " + dataPtr + " = getelementptr i8, i8* " + rawPtr + ", i32 " + std::to_string(4));
+
+    std::string finalPtr = new_reg();
+    liststmt.push_back("  " + finalPtr + " = bitcast i8* " + dataPtr + " to " + llvmType + "*");
+
+    lastValue = arrPtr;
+    if (infer1(e_new_arr->type_) == TINT){
+      last__type = TINTA;
+    }
+    else if (infer1(e_new_arr->type_) == TDOUBLE){
+      last__type = TDOUBLEA;
+    }
+    else if (infer1(e_new_arr->type_) == TBOOL){
+      last__type = TBOOLA;
+    }
+  }
+}
+
+void CodeGen::visitEIndex(EIndex *e_index)
+{
+  /* Code For EIndex Goes Here */
+  if (num_passes1 == 1){
+    std::string type_str = last__type;
+    e_index->expr_1->accept(this);
+    std::string arrPtr = lastValue;
+    e_index->expr_2->accept(this);
+    std::string index = lastValue;
+    std::string adjIdx = new_reg();
+    liststmt.push_back("  " + adjIdx + " = add i32 " + index + ", 0");
+    std::string temp = new_reg();
+    liststmt.push_back("  " + temp + " = getelementptr i32, i32* " + arrPtr + ", i32 1");
+    std::string temp1 = new_reg();
+    liststmt.push_back("  " + temp1 + " = bitcast i32* " + temp + " to " + type_str + "*");
+    std::string temp2 = new_reg();
+    liststmt.push_back("  " + temp2 + " = getelementptr " + type_str + ", " + type_str + "* " + temp1 + ", i32 " + adjIdx);
+    std::string temp3 = new_reg();
+    liststmt.push_back("  " + temp3 + " = load " + type_str + ", " + type_str + "* " + temp2);
+
+    lastValue = temp3;
+    lastPtr = temp2;
+    last__type = type_str;
+  }
+}
+
+void CodeGen::visitELen(ELen *e_len)
+{
+  /* Code For ELen Goes Here */
+  e_len->expr_->accept(this);
+  std::string arrPtr = lastValue;
+
+  std::string length = new_reg();
+  liststmt.push_back("  " + length + " = load i32, i32* " + arrPtr);
+
+  lastValue = length;
+
 }
 
 void CodeGen::visitNeg(Neg *neg)

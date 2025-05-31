@@ -45,13 +45,17 @@ class PrintAbsyn : public Visitor
   void visitBStmt(BStmt *p);
   void visitDecl(Decl *p);
   void visitAss(Ass *p);
+  void visitAss1(Ass1 *p);
   void visitIncr(Incr *p);
   void visitDecr(Decr *p);
+  void visitIncr1(Incr1 *p);
+  void visitDecr1(Decr1 *p);
   void visitRet(Ret *p);
   void visitVRet(VRet *p);
   void visitCond(Cond *p);
   void visitCondElse(CondElse *p);
   void visitWhile(While *p);
+  void visitFor(For *p);
   void visitSExp(SExp *p);
   void visitItem(Item *p); /* abstract class */
   void visitNoInit(NoInit *p);
@@ -63,10 +67,12 @@ class PrintAbsyn : public Visitor
   void visitBool(Bool *p);
   void visitVoid(Void *p);
   void visitStr(Str *p);
+  void visitArray(Array *p);
   void visitFun(Fun *p);
   void visitListType(ListType *p);
   void visitExpr(Expr *p); /* abstract class */
   void visitETypeAnn(ETypeAnn *p);
+  void visitELen(ELen *p);
   void visitEVar(EVar *p);
   void visitELitInt(ELitInt *p);
   void visitELitDoub(ELitDoub *p);
@@ -74,6 +80,8 @@ class PrintAbsyn : public Visitor
   void visitELitFalse(ELitFalse *p);
   void visitEApp(EApp *p);
   void visitEString(EString *p);
+  void visitENewArr(ENewArr *p);
+  void visitEIndex(EIndex *p);
   void visitNeg(Neg *p);
   void visitNot(Not *p);
   void visitEMul(EMul *p);
@@ -194,13 +202,17 @@ class ShowAbsyn : public Visitor
   void visitBStmt(BStmt *p);
   void visitDecl(Decl *p);
   void visitAss(Ass *p);
+  void visitAss1(Ass1 *p);
   void visitIncr(Incr *p);
   void visitDecr(Decr *p);
+  void visitIncr1(Incr1 *p);
+  void visitDecr1(Decr1 *p);
   void visitRet(Ret *p);
   void visitVRet(VRet *p);
   void visitCond(Cond *p);
   void visitCondElse(CondElse *p);
   void visitWhile(While *p);
+  void visitFor(For *p);
   void visitSExp(SExp *p);
   void visitItem(Item *p); /* abstract class */
   void visitNoInit(NoInit *p);
@@ -212,10 +224,12 @@ class ShowAbsyn : public Visitor
   void visitBool(Bool *p);
   void visitVoid(Void *p);
   void visitStr(Str *p);
+  void visitArray(Array *p);
   void visitFun(Fun *p);
   void visitListType(ListType *p);
   void visitExpr(Expr *p); /* abstract class */
   void visitETypeAnn(ETypeAnn *p);
+  void visitELen(ELen *p);
   void visitEVar(EVar *p);
   void visitELitInt(ELitInt *p);
   void visitELitDoub(ELitDoub *p);
@@ -223,6 +237,8 @@ class ShowAbsyn : public Visitor
   void visitELitFalse(ELitFalse *p);
   void visitEApp(EApp *p);
   void visitEString(EString *p);
+  void visitENewArr(ENewArr *p);
+  void visitEIndex(EIndex *p);
   void visitNeg(Neg *p);
   void visitNot(Not *p);
   void visitEMul(EMul *p);

@@ -99,31 +99,36 @@ Prog* pProg(const char *str)
 %token _SYMB_7    //   ++
 %token _SYMB_8    //   --
 %token _SYMB_9    //   :
-%token _SYMB_10    //   -
-%token _SYMB_11    //   !
-%token _SYMB_12    //   &&
-%token _SYMB_13    //   ||
-%token _SYMB_14    //   +
-%token _SYMB_15    //   *
-%token _SYMB_16    //   /
-%token _SYMB_17    //   %
-%token _SYMB_18    //   <
-%token _SYMB_19    //   <=
-%token _SYMB_20    //   >
-%token _SYMB_21    //   >=
-%token _SYMB_22    //   ==
-%token _SYMB_23    //   !=
-%token _SYMB_24    //   boolean
-%token _SYMB_25    //   double
-%token _SYMB_26    //   else
-%token _SYMB_27    //   false
-%token _SYMB_28    //   if
-%token _SYMB_29    //   int
-%token _SYMB_30    //   return
-%token _SYMB_31    //   string
-%token _SYMB_32    //   true
-%token _SYMB_33    //   void
-%token _SYMB_34    //   while
+%token _SYMB_10    //   [
+%token _SYMB_11    //   ]
+%token _SYMB_12    //   .
+%token _SYMB_13    //   -
+%token _SYMB_14    //   !
+%token _SYMB_15    //   &&
+%token _SYMB_16    //   ||
+%token _SYMB_17    //   +
+%token _SYMB_18    //   *
+%token _SYMB_19    //   /
+%token _SYMB_20    //   %
+%token _SYMB_21    //   <
+%token _SYMB_22    //   <=
+%token _SYMB_23    //   >
+%token _SYMB_24    //   >=
+%token _SYMB_25    //   ==
+%token _SYMB_26    //   !=
+%token _SYMB_27    //   boolean
+%token _SYMB_28    //   double
+%token _SYMB_29    //   else
+%token _SYMB_30    //   false
+%token _SYMB_31    //   for
+%token _SYMB_32    //   if
+%token _SYMB_33    //   int
+%token _SYMB_34    //   new
+%token _SYMB_35    //   return
+%token _SYMB_36    //   string
+%token _SYMB_37    //   true
+%token _SYMB_38    //   void
+%token _SYMB_39    //   while
 
 %type <prog_> Prog
 %type <topdef_> TopDef
@@ -137,6 +142,7 @@ Prog* pProg(const char *str)
 %type <listitem_> ListItem
 %type <type_> Type
 %type <listtype_> ListType
+%type <expr_> Expr8
 %type <expr_> Expr7
 %type <expr_> Expr6
 %type <expr_> Expr5
@@ -179,13 +185,17 @@ Stmt : _SYMB_5 {  $$ = new Empty();  }
   | Blk {  $$ = new BStmt($1);  }
   | Type ListItem _SYMB_5 {  std::reverse($2->begin(),$2->end()) ;$$ = new Decl($1, $2);  }
   | _IDENT_ _SYMB_6 Expr _SYMB_5 {  $$ = new Ass($1, $3);  }
+  | Expr _SYMB_6 Expr _SYMB_5 {  $$ = new Ass1($1, $3);  }
   | _IDENT_ _SYMB_7 _SYMB_5 {  $$ = new Incr($1);  }
   | _IDENT_ _SYMB_8 _SYMB_5 {  $$ = new Decr($1);  }
-  | _SYMB_30 Expr _SYMB_5 {  $$ = new Ret($2);  }
-  | _SYMB_30 _SYMB_5 {  $$ = new VRet();  }
-  | _SYMB_28 _SYMB_0 Expr _SYMB_1 Stmt {  $$ = new Cond($3, $5);  }
-  | _SYMB_28 _SYMB_0 Expr _SYMB_1 Stmt _SYMB_26 Stmt {  $$ = new CondElse($3, $5, $7);  }
-  | _SYMB_34 _SYMB_0 Expr _SYMB_1 Stmt {  $$ = new While($3, $5);  }
+  | Expr _SYMB_7 _SYMB_5 {  $$ = new Incr1($1);  }
+  | Expr _SYMB_8 _SYMB_5 {  $$ = new Decr1($1);  }
+  | _SYMB_35 Expr _SYMB_5 {  $$ = new Ret($2);  }
+  | _SYMB_35 _SYMB_5 {  $$ = new VRet();  }
+  | _SYMB_32 _SYMB_0 Expr _SYMB_1 Stmt {  $$ = new Cond($3, $5);  }
+  | _SYMB_32 _SYMB_0 Expr _SYMB_1 Stmt _SYMB_29 Stmt {  $$ = new CondElse($3, $5, $7);  }
+  | _SYMB_39 _SYMB_0 Expr _SYMB_1 Stmt {  $$ = new While($3, $5);  }
+  | _SYMB_31 _SYMB_0 Type _IDENT_ _SYMB_9 Expr _SYMB_1 Stmt {  $$ = new For($3, $4, $6, $8);  }
   | Expr _SYMB_5 {  $$ = new SExp($1);  }
 ;
 Item : _IDENT_ {  $$ = new NoInit($1);  }
@@ -194,30 +204,36 @@ Item : _IDENT_ {  $$ = new NoInit($1);  }
 ListItem : Item {  $$ = new ListItem() ; $$->push_back($1);  }
   | Item _SYMB_2 ListItem {  $3->push_back($1) ; $$ = $3 ;  }
 ;
-Type : _SYMB_29 {  $$ = new Int();  }
-  | _SYMB_25 {  $$ = new Doub();  }
-  | _SYMB_24 {  $$ = new Bool();  }
-  | _SYMB_33 {  $$ = new Void();  }
-  | _SYMB_31 {  $$ = new Str();  }
+Type : _SYMB_33 {  $$ = new Int();  }
+  | _SYMB_28 {  $$ = new Doub();  }
+  | _SYMB_27 {  $$ = new Bool();  }
+  | _SYMB_38 {  $$ = new Void();  }
+  | _SYMB_36 {  $$ = new Str();  }
+  | Type _SYMB_10 _SYMB_11 {  $$ = new Array($1);  }
 ;
 ListType : /* empty */ {  $$ = new ListType();  }
   | Type {  $$ = new ListType() ; $$->push_back($1);  }
   | Type _SYMB_2 ListType {  $3->push_back($1) ; $$ = $3 ;  }
 ;
-Expr7 : _SYMB_0 Expr _SYMB_9 Type _SYMB_1 {  $$ = new ETypeAnn($2, $4);  }
+Expr8 : _SYMB_0 Expr _SYMB_9 Type _SYMB_1 {  $$ = new ETypeAnn($2, $4);  }
   | _SYMB_0 Expr _SYMB_1 {  $$ = $2;  }
+;
+Expr7 : Expr6 _SYMB_12 _IDENT_ {  $$ = new ELen($1, $3);  }
+  | Expr8 {  $$ = $1;  }
 ;
 Expr6 : _IDENT_ {  $$ = new EVar($1);  }
   | _INTEGER_ {  $$ = new ELitInt($1);  }
   | _DOUBLE_ {  $$ = new ELitDoub($1);  }
-  | _SYMB_32 {  $$ = new ELitTrue();  }
-  | _SYMB_27 {  $$ = new ELitFalse();  }
+  | _SYMB_37 {  $$ = new ELitTrue();  }
+  | _SYMB_30 {  $$ = new ELitFalse();  }
   | _IDENT_ _SYMB_0 ListExpr _SYMB_1 {  std::reverse($3->begin(),$3->end()) ;$$ = new EApp($1, $3);  }
   | _STRING_ {  $$ = new EString($1);  }
+  | _SYMB_34 Type _SYMB_10 Expr _SYMB_11 {  $$ = new ENewArr($2, $4);  }
+  | Expr6 _SYMB_10 Expr _SYMB_11 {  $$ = new EIndex($1, $3);  }
   | Expr7 {  $$ = $1;  }
 ;
-Expr5 : _SYMB_10 Expr6 {  $$ = new Neg($2);  }
-  | _SYMB_11 Expr6 {  $$ = new Not($2);  }
+Expr5 : _SYMB_13 Expr6 {  $$ = new Neg($2);  }
+  | _SYMB_14 Expr6 {  $$ = new Not($2);  }
   | Expr6 {  $$ = $1;  }
 ;
 Expr4 : Expr4 MulOp Expr5 {  $$ = new EMul($1, $2, $3);  }
@@ -229,28 +245,28 @@ Expr3 : Expr3 AddOp Expr4 {  $$ = new EAdd($1, $2, $3);  }
 Expr2 : Expr2 RelOp Expr3 {  $$ = new ERel($1, $2, $3);  }
   | Expr3 {  $$ = $1;  }
 ;
-Expr1 : Expr2 _SYMB_12 Expr1 {  $$ = new EAnd($1, $3);  }
+Expr1 : Expr2 _SYMB_15 Expr1 {  $$ = new EAnd($1, $3);  }
   | Expr2 {  $$ = $1;  }
 ;
-Expr : Expr1 _SYMB_13 Expr {  $$ = new EOr($1, $3);  }
+Expr : Expr1 _SYMB_16 Expr {  $$ = new EOr($1, $3);  }
   | Expr1 {  $$ = $1;  }
 ;
 ListExpr : /* empty */ {  $$ = new ListExpr();  }
   | Expr {  $$ = new ListExpr() ; $$->push_back($1);  }
   | Expr _SYMB_2 ListExpr {  $3->push_back($1) ; $$ = $3 ;  }
 ;
-AddOp : _SYMB_14 {  $$ = new Plus();  }
-  | _SYMB_10 {  $$ = new Minus();  }
+AddOp : _SYMB_17 {  $$ = new Plus();  }
+  | _SYMB_13 {  $$ = new Minus();  }
 ;
-MulOp : _SYMB_15 {  $$ = new Times();  }
-  | _SYMB_16 {  $$ = new Div();  }
-  | _SYMB_17 {  $$ = new Mod();  }
+MulOp : _SYMB_18 {  $$ = new Times();  }
+  | _SYMB_19 {  $$ = new Div();  }
+  | _SYMB_20 {  $$ = new Mod();  }
 ;
-RelOp : _SYMB_18 {  $$ = new LTH();  }
-  | _SYMB_19 {  $$ = new LE();  }
-  | _SYMB_20 {  $$ = new GTH();  }
-  | _SYMB_21 {  $$ = new GE();  }
-  | _SYMB_22 {  $$ = new EQU();  }
-  | _SYMB_23 {  $$ = new NE();  }
+RelOp : _SYMB_21 {  $$ = new LTH();  }
+  | _SYMB_22 {  $$ = new LE();  }
+  | _SYMB_23 {  $$ = new GTH();  }
+  | _SYMB_24 {  $$ = new GE();  }
+  | _SYMB_25 {  $$ = new EQU();  }
+  | _SYMB_26 {  $$ = new NE();  }
 ;
 
