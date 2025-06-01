@@ -373,6 +373,54 @@ Ass *Ass::clone() const
 
 
 
+/********************   Ass1    ********************/
+Ass1::Ass1(Expr *p1, Expr *p2)
+{
+  expr_1 = p1;
+  expr_2 = p2;
+
+}
+
+Ass1::Ass1(const Ass1 & other)
+{
+  expr_1 = other.expr_1->clone();
+  expr_2 = other.expr_2->clone();
+
+}
+
+Ass1 &Ass1::operator=(const Ass1 & other)
+{
+  Ass1 tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void Ass1::swap(Ass1 & other)
+{
+  std::swap(expr_1, other.expr_1);
+  std::swap(expr_2, other.expr_2);
+
+}
+
+Ass1::~Ass1()
+{
+  delete(expr_1);
+  delete(expr_2);
+
+}
+
+void Ass1::accept(Visitor *v)
+{
+  v->visitAss1(this);
+}
+
+Ass1 *Ass1::clone() const
+{
+  return new Ass1(*this);
+}
+
+
+
 /********************   Incr    ********************/
 Incr::Incr(Ident p1)
 {
@@ -455,6 +503,94 @@ void Decr::accept(Visitor *v)
 Decr *Decr::clone() const
 {
   return new Decr(*this);
+}
+
+
+
+/********************   Incr1    ********************/
+Incr1::Incr1(Expr *p1)
+{
+  expr_ = p1;
+
+}
+
+Incr1::Incr1(const Incr1 & other)
+{
+  expr_ = other.expr_->clone();
+
+}
+
+Incr1 &Incr1::operator=(const Incr1 & other)
+{
+  Incr1 tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void Incr1::swap(Incr1 & other)
+{
+  std::swap(expr_, other.expr_);
+
+}
+
+Incr1::~Incr1()
+{
+  delete(expr_);
+
+}
+
+void Incr1::accept(Visitor *v)
+{
+  v->visitIncr1(this);
+}
+
+Incr1 *Incr1::clone() const
+{
+  return new Incr1(*this);
+}
+
+
+
+/********************   Decr1    ********************/
+Decr1::Decr1(Expr *p1)
+{
+  expr_ = p1;
+
+}
+
+Decr1::Decr1(const Decr1 & other)
+{
+  expr_ = other.expr_->clone();
+
+}
+
+Decr1 &Decr1::operator=(const Decr1 & other)
+{
+  Decr1 tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void Decr1::swap(Decr1 & other)
+{
+  std::swap(expr_, other.expr_);
+
+}
+
+Decr1::~Decr1()
+{
+  delete(expr_);
+
+}
+
+void Decr1::accept(Visitor *v)
+{
+  v->visitDecr1(this);
+}
+
+Decr1 *Decr1::clone() const
+{
+  return new Decr1(*this);
 }
 
 
@@ -687,6 +823,61 @@ void While::accept(Visitor *v)
 While *While::clone() const
 {
   return new While(*this);
+}
+
+
+
+/********************   For    ********************/
+For::For(Type *p1, Ident p2, Expr *p3, Stmt *p4)
+{
+  type_ = p1;
+  ident_ = p2;
+  expr_ = p3;
+  stmt_ = p4;
+
+}
+
+For::For(const For & other)
+{
+  type_ = other.type_->clone();
+  ident_ = other.ident_;
+  expr_ = other.expr_->clone();
+  stmt_ = other.stmt_->clone();
+
+}
+
+For &For::operator=(const For & other)
+{
+  For tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void For::swap(For & other)
+{
+  std::swap(type_, other.type_);
+  std::swap(ident_, other.ident_);
+  std::swap(expr_, other.expr_);
+  std::swap(stmt_, other.stmt_);
+
+}
+
+For::~For()
+{
+  delete(type_);
+  delete(expr_);
+  delete(stmt_);
+
+}
+
+void For::accept(Visitor *v)
+{
+  v->visitFor(this);
+}
+
+For *For::clone() const
+{
+  return new For(*this);
 }
 
 
@@ -1025,6 +1216,50 @@ Str *Str::clone() const
 
 
 
+/********************   Array    ********************/
+Array::Array(Type *p1)
+{
+  type_ = p1;
+
+}
+
+Array::Array(const Array & other)
+{
+  type_ = other.type_->clone();
+
+}
+
+Array &Array::operator=(const Array & other)
+{
+  Array tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void Array::swap(Array & other)
+{
+  std::swap(type_, other.type_);
+
+}
+
+Array::~Array()
+{
+  delete(type_);
+
+}
+
+void Array::accept(Visitor *v)
+{
+  v->visitArray(this);
+}
+
+Array *Array::clone() const
+{
+  return new Array(*this);
+}
+
+
+
 /********************   Fun    ********************/
 Fun::Fun(Type *p1, ListType *p2)
 {
@@ -1117,6 +1352,53 @@ void ETypeAnn::accept(Visitor *v)
 ETypeAnn *ETypeAnn::clone() const
 {
   return new ETypeAnn(*this);
+}
+
+
+
+/********************   ELen    ********************/
+ELen::ELen(Expr *p1, Ident p2)
+{
+  expr_ = p1;
+  ident_ = p2;
+
+}
+
+ELen::ELen(const ELen & other)
+{
+  expr_ = other.expr_->clone();
+  ident_ = other.ident_;
+
+}
+
+ELen &ELen::operator=(const ELen & other)
+{
+  ELen tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void ELen::swap(ELen & other)
+{
+  std::swap(expr_, other.expr_);
+  std::swap(ident_, other.ident_);
+
+}
+
+ELen::~ELen()
+{
+  delete(expr_);
+
+}
+
+void ELen::accept(Visitor *v)
+{
+  v->visitELen(this);
+}
+
+ELen *ELen::clone() const
+{
+  return new ELen(*this);
 }
 
 
@@ -1416,6 +1698,102 @@ void EString::accept(Visitor *v)
 EString *EString::clone() const
 {
   return new EString(*this);
+}
+
+
+
+/********************   ENewArr    ********************/
+ENewArr::ENewArr(Type *p1, Expr *p2)
+{
+  type_ = p1;
+  expr_ = p2;
+
+}
+
+ENewArr::ENewArr(const ENewArr & other)
+{
+  type_ = other.type_->clone();
+  expr_ = other.expr_->clone();
+
+}
+
+ENewArr &ENewArr::operator=(const ENewArr & other)
+{
+  ENewArr tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void ENewArr::swap(ENewArr & other)
+{
+  std::swap(type_, other.type_);
+  std::swap(expr_, other.expr_);
+
+}
+
+ENewArr::~ENewArr()
+{
+  delete(type_);
+  delete(expr_);
+
+}
+
+void ENewArr::accept(Visitor *v)
+{
+  v->visitENewArr(this);
+}
+
+ENewArr *ENewArr::clone() const
+{
+  return new ENewArr(*this);
+}
+
+
+
+/********************   EIndex    ********************/
+EIndex::EIndex(Expr *p1, Expr *p2)
+{
+  expr_1 = p1;
+  expr_2 = p2;
+
+}
+
+EIndex::EIndex(const EIndex & other)
+{
+  expr_1 = other.expr_1->clone();
+  expr_2 = other.expr_2->clone();
+
+}
+
+EIndex &EIndex::operator=(const EIndex & other)
+{
+  EIndex tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EIndex::swap(EIndex & other)
+{
+  std::swap(expr_1, other.expr_1);
+  std::swap(expr_2, other.expr_2);
+
+}
+
+EIndex::~EIndex()
+{
+  delete(expr_1);
+  delete(expr_2);
+
+}
+
+void EIndex::accept(Visitor *v)
+{
+  v->visitEIndex(this);
+}
+
+EIndex *EIndex::clone() const
+{
+  return new EIndex(*this);
 }
 
 

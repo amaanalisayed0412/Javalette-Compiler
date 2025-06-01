@@ -33,9 +33,15 @@ separator nonempty Item "," ;
 
 Ass.       Stmt ::= Ident "=" Expr  ";" ;
 
+Ass1.      Stmt ::= Expr "=" Expr ";" ;
+
 Incr.      Stmt ::= Ident "++"  ";" ;
 
 Decr.      Stmt ::= Ident "--"  ";" ;
+
+Incr1.     Stmt ::= Expr  "++"  ";" ;
+
+Decr1.     Stmt ::= Expr  "--"  ";" ;
 
 Ret.       Stmt ::= "return" Expr ";" ;
 
@@ -46,6 +52,8 @@ Cond.      Stmt ::= "if" "(" Expr ")" Stmt  ;
 CondElse.  Stmt ::= "if" "(" Expr ")" Stmt "else" Stmt  ;
 
 While.     Stmt ::= "while" "(" Expr ")" Stmt ;
+
+For.       Stmt ::= "for" "(" Type Ident ":" Expr ")" Stmt ;
 
 SExp.      Stmt ::= Expr  ";" ;
 
@@ -61,13 +69,17 @@ Void.      Type ::= "void" ;
 
 Str.	   Type ::= "string" ;
 
+Array.     Type ::= Type "[" "]" ;
+
 internal   Fun. Type ::= Type "(" [Type] ")" ;
 
 separator  Type "," ;
 
 -- Expressions ---------------------------------------------
 
-ETypeAnn.  Expr7 ::= "(" Expr ":" Type ")" ;
+ETypeAnn.  Expr8 ::= "(" Expr ":" Type ")" ;
+
+ELen.      Expr7 ::= Expr6 "." Ident ;
 
 EVar.      Expr6 ::= Ident ;
 
@@ -83,6 +95,10 @@ EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
 
 EString.   Expr6 ::= String ;
 
+ENewArr.   Expr6 ::= "new" Type "[" Expr "]" ;
+
+EIndex.    Expr6 ::= Expr6 "[" Expr "]" ;
+
 Neg.       Expr5 ::= "-" Expr6 ;
 
 Not.       Expr5 ::= "!" Expr6 ;
@@ -97,7 +113,7 @@ EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
 
 EOr.       Expr ::= Expr1 "||" Expr ;
 
-coercions  Expr 7 ;
+coercions  Expr 8 ;
 
 separator  Expr "," ;
 

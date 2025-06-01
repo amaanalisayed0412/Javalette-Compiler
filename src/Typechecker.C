@@ -18,7 +18,7 @@ void Skeleton::visitAddOp(AddOp *t) {} //abstract class
 void Skeleton::visitMulOp(MulOp *t) {} //abstract class
 void Skeleton::visitRelOp(RelOp *t) {} //abstract class
 
-enum InferredType { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TUNKNOWN };
+enum InferredType { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TINTA, TDOUBLEA, TBOOLA, TUNKNOWN };
 
 Type* inferredtotype(InferredType type1);
 
@@ -40,6 +40,15 @@ Type* inferredtotype(InferredType type1){
   }
   else if (type1 == TVOID){
     t = new Void;
+  }
+  else if (type1 == TINTA){
+    t = new Array(new Int);
+  }
+  else if (type1 == TDOUBLEA){
+    t = new Array(new Doub);
+  }
+  else if (type1 == TBOOLA){
+    t = new Array(new Bool);
   }
   return t;
 }
@@ -67,6 +76,18 @@ std::string typetostring(InferredType t){
   else if (t == TVOID){
     return "void";
   }
+  else if (t == TINTA){
+    return "int[]";
+  }
+  else if (t == TDOUBLEA){
+    return "double[]";
+  }
+  else if (t == TBOOLA){
+    return "bool[]";
+  }
+  else if (t == TUNKNOWN){
+    return "unknown";
+  }
   else {
     return "unknown";
   }
@@ -93,6 +114,13 @@ InferredType infer(Type *t) {
     if (dynamic_cast<Doub*>(t)) return TDOUBLE;
     if (dynamic_cast<Bool*>(t)) return TBOOL;
     if (dynamic_cast<Str*>(t)) return TSTR;
+    if (dynamic_cast<Array*>(t)) {
+        Array* arr = dynamic_cast<Array*>(t);
+        if (dynamic_cast<Int*>(arr->type_)) return TINTA;
+        if (dynamic_cast<Doub*>(arr->type_)) return TDOUBLEA;
+        if (dynamic_cast<Bool*>(arr->type_)) return TBOOLA;
+        return TUNKNOWN; // Unknown array type
+    }
     if (dynamic_cast<Void*>(t)) return TVOID;
     return TUNKNOWN;
 }
@@ -289,6 +317,7 @@ void Skeleton::visitDecl(Decl *decl)
     if (decl_type == TVOID){
     	throw TypeError("Cannot declare void variable");
     }
+
     decl->listitem_->accept(this);
   }
 }
@@ -315,6 +344,29 @@ void Skeleton::visitAss(Ass *ass)
   
 }
 
+void Skeleton::visitAss1(Ass1 *ass)
+{
+  /* Code For Ass1 Goes Here */
+  if (num_passes == 1){
+    if (!dynamic_cast<EIndex*>(ass->expr_1)) throw TypeError("Assignment statement cannot have expression on the left.");
+    ass->expr_1->accept(this);
+    InferredType type1 = last_type;
+    ass->expr_2->accept(this);
+    InferredType type2 = last_type;
+
+    if (type1 == TUNKNOWN){
+      throw TypeError("Undeclared list indexed. ");
+    }
+    if (type1 != type2){
+      throw TypeError("Incorrect literal type assigned.");
+
+    }
+    ass->expr_1 = new ETypeAnn(ass->expr_1, inferredtotype(type1));
+    ass->expr_2 = new ETypeAnn(ass->expr_2, inferredtotype(type2));
+  }
+
+}
+
 void Skeleton::visitIncr(Incr *incr)
 {
   /* Code For Incr Goes Here */
@@ -338,6 +390,31 @@ void Skeleton::visitDecr(Decr *decr)
   }
   
 }
+
+void Skeleton::visitIncr1(Incr1 *incr)
+{
+  /* Code For Incr1 Goes Here */
+  if (! dynamic_cast<EIndex*> (incr->expr_)) throw TypeError("Cannot use an expression with the ++ operator");
+  if (num_passes == 1){
+    incr->expr_->accept(this);
+    if (last_type != TINT){
+      throw TypeError("Wrong variable type used with the increment (++) operator.");
+    }
+  }
+}
+
+void Skeleton::visitDecr1(Decr1 *decr)
+{
+  /* Code For Decr1 Goes Here */
+if (! dynamic_cast<EIndex*> (decr->expr_)) throw TypeError("Cannot use an expression with the -- operator");
+  if (num_passes == 1){
+    decr->expr_->accept(this);
+    if (last_type != TINT){
+      throw TypeError("Wrong variable type used with the decrement (--) operator.");
+    }
+  }
+}
+
 
 void Skeleton::visitRet(Ret *ret)
 {
@@ -417,6 +494,51 @@ void Skeleton::visitWhile(While *while_)
   }
 }
 
+void Skeleton::visitFor(For *for_)
+{
+  /* Code For For Goes Here */
+  if (num_passes == 1){
+    for_->expr_->accept(this);
+    if (last_type != TINTA && last_type != TDOUBLEA && last_type != TBOOLA){
+
+      throw TypeError("List expected in for loop.");
+    }
+
+    for_->expr_ = new ETypeAnn(for_->expr_, inferredtotype(last_type));
+
+
+    InferredType elementType;
+    if (last_type == TINTA) elementType = TINT;
+    else if (last_type == TDOUBLEA) elementType = TDOUBLE;
+    else if (last_type == TBOOLA) elementType = TBOOL;
+    else{
+      throw TypeError("Unknown type in for loop.");
+    }
+
+    for_->type_->accept(this);
+    if (last_type != elementType){
+      throw TypeError("For loop variable type does not match the list type.");
+    }
+  visitIdent(for_->ident_);
+  
+    if (lookupVariableshall(for_->ident_) != TUNKNOWN){
+      throw TypeError("Multiple declaration in same scope");
+    }
+    else{
+      contextStack.push_back({});
+    }
+    decl_type = infer(for_->type_);
+    contextStack.back()[for_->ident_] = decl_type;
+
+    for_->stmt_->accept(this);
+    contextStack.pop_back();
+  }
+  else if (num_passes == 2){
+    if (AlwaysReturns != true){
+      for_->stmt_->accept(this);
+    }
+}
+}
 void Skeleton::visitSExp(SExp *s_exp)
 {
   /* Code For SExp Goes Here */
@@ -499,6 +621,20 @@ void Skeleton::visitStr(Str *str)
   /* Code For Str Goes Here */
 
   last_type = TSTR;
+}
+
+void Skeleton::visitArray(Array *array)
+{
+  /* Code For Array Goes Here */
+  if (num_passes == 1){
+    array->type_->accept(this);
+    InferredType type = last_type;
+    if (type != TINT && type != TDOUBLE && type != TBOOL){
+      throw TypeError("Invalid array type in array declaration.");
+    }
+    last_type = (type == TINT) ? TINTA : (type == TDOUBLE) ? TDOUBLEA : TBOOLA;
+  }
+
 }
 
 void Skeleton::visitFun(Fun *fun)
@@ -598,6 +734,73 @@ void Skeleton::visitEString(EString *e_string)
 
 }
 
+void Skeleton::visitEIndex(EIndex *e_index)
+{
+  /* Code For EIndex Goes Here */
+  if (num_passes == 1){
+    e_index->expr_1->accept(this);
+    InferredType type1 = last_type;
+    e_index->expr_2->accept(this);
+    InferredType type2 = last_type;
+    if (type1 != TINTA && type1 != TDOUBLEA && type1 != TBOOLA){
+      throw TypeError("Invalid array type in index expression.");
+    }
+    if (type2 != TINT){
+      throw TypeError("Array index must be of type int.");
+    }
+    if (type1 == TINTA){
+      last_type = TINT;
+    }
+    else if (type1 == TDOUBLEA){
+      last_type = TDOUBLE;
+    }
+    else if (type1 == TBOOLA){
+      last_type = TBOOL;
+    }
+    e_index->expr_1 = new ETypeAnn(e_index->expr_1, inferredtotype(type1));
+    e_index->expr_2 = new ETypeAnn(e_index->expr_2, inferredtotype(type2));
+  }
+
+}
+
+void Skeleton::visitENewArr(ENewArr *e_new_arr)
+{
+  /* Code For ENewArr Goes Here */
+  if (num_passes == 1){
+    e_new_arr->type_->accept(this);
+    InferredType type = last_type;
+    if (type != TINT && type != TDOUBLE && type != TBOOL){
+      throw TypeError("Invalid array type in array declaration.");
+    }
+    e_new_arr->expr_->accept(this);
+    InferredType expr_type = last_type;
+    if (expr_type != TINT){
+      throw TypeError("Array size must be of type int.");
+    }
+    e_new_arr->expr_ = new ETypeAnn(e_new_arr->expr_, new Int);
+    last_type = (type == TINT) ? TINTA : (type == TDOUBLE) ? TDOUBLEA : TBOOLA;
+  }
+
+}
+
+void Skeleton::visitELen(ELen *e_len)
+{
+  /* Code For ELen Goes Here */
+  if (num_passes == 1){
+    visitIdent(e_len->ident_);
+    if (e_len->ident_ != "length"){
+      throw TypeError("Method does not exist.");
+    }
+    e_len->expr_->accept(this);
+    if (last_type != TINTA && last_type != TDOUBLEA && last_type != TBOOLA){
+      throw TypeError("Invalid array type in length expression.");
+    }
+    e_len->expr_ = new ETypeAnn(e_len->expr_, inferredtotype(last_type));
+    last_type = TINT;
+  }
+
+}
+
 void Skeleton::visitNeg(Neg *neg)
 {
   /* Code For Neg Goes Here */
@@ -678,7 +881,7 @@ void Skeleton::visitERel(ERel *e_rel)
     e_rel->expr_2->accept(this);
     InferredType type2 = last_type;
     if (type1 != type2 || (type1 == TBOOL && !dynamic_cast<EQU*>(e_rel->relop_))){
-      throw TypeError("Incorrect operand type for ERel");
+       throw TypeError("Incorrect operand type for ERel");
       
     }
     e_rel-> expr_1 = new ETypeAnn(e_rel->expr_1, inferredtotype(type1));

@@ -40,21 +40,27 @@ class Decl;
 class NoInit;
 class Init;
 class Ass;
+class Ass1;
 class Incr;
 class Decr;
+class Incr1;
+class Decr1;
 class Ret;
 class VRet;
 class Cond;
 class CondElse;
 class While;
+class For;
 class SExp;
 class Int;
 class Doub;
 class Bool;
 class Void;
 class Str;
+class Array;
 class Fun;
 class ETypeAnn;
+class ELen;
 class EVar;
 class ELitInt;
 class ELitDoub;
@@ -62,6 +68,8 @@ class ELitTrue;
 class ELitFalse;
 class EApp;
 class EString;
+class ENewArr;
+class EIndex;
 class Neg;
 class Not;
 class EMul;
@@ -114,21 +122,27 @@ public:
   virtual void visitNoInit(NoInit *p) = 0;
   virtual void visitInit(Init *p) = 0;
   virtual void visitAss(Ass *p) = 0;
+  virtual void visitAss1(Ass1 *p) = 0;
   virtual void visitIncr(Incr *p) = 0;
   virtual void visitDecr(Decr *p) = 0;
+  virtual void visitIncr1(Incr1 *p) = 0;
+  virtual void visitDecr1(Decr1 *p) = 0;
   virtual void visitRet(Ret *p) = 0;
   virtual void visitVRet(VRet *p) = 0;
   virtual void visitCond(Cond *p) = 0;
   virtual void visitCondElse(CondElse *p) = 0;
   virtual void visitWhile(While *p) = 0;
+  virtual void visitFor(For *p) = 0;
   virtual void visitSExp(SExp *p) = 0;
   virtual void visitInt(Int *p) = 0;
   virtual void visitDoub(Doub *p) = 0;
   virtual void visitBool(Bool *p) = 0;
   virtual void visitVoid(Void *p) = 0;
   virtual void visitStr(Str *p) = 0;
+  virtual void visitArray(Array *p) = 0;
   virtual void visitFun(Fun *p) = 0;
   virtual void visitETypeAnn(ETypeAnn *p) = 0;
+  virtual void visitELen(ELen *p) = 0;
   virtual void visitEVar(EVar *p) = 0;
   virtual void visitELitInt(ELitInt *p) = 0;
   virtual void visitELitDoub(ELitDoub *p) = 0;
@@ -136,6 +150,8 @@ public:
   virtual void visitELitFalse(ELitFalse *p) = 0;
   virtual void visitEApp(EApp *p) = 0;
   virtual void visitEString(EString *p) = 0;
+  virtual void visitENewArr(ENewArr *p) = 0;
+  virtual void visitEIndex(EIndex *p) = 0;
   virtual void visitNeg(Neg *p) = 0;
   virtual void visitNot(Not *p) = 0;
   virtual void visitEMul(EMul *p) = 0;
@@ -377,6 +393,21 @@ public:
   void swap(Ass &);
 };
 
+class Ass1 : public Stmt
+{
+public:
+  Expr *expr_1;
+  Expr *expr_2;
+
+  Ass1(const Ass1 &);
+  Ass1 &operator=(const Ass1 &);
+  Ass1(Expr *p1, Expr *p2);
+  ~Ass1();
+  virtual void accept(Visitor *v);
+  virtual Ass1 *clone() const;
+  void swap(Ass1 &);
+};
+
 class Incr : public Stmt
 {
 public:
@@ -403,6 +434,34 @@ public:
   virtual void accept(Visitor *v);
   virtual Decr *clone() const;
   void swap(Decr &);
+};
+
+class Incr1 : public Stmt
+{
+public:
+  Expr *expr_;
+
+  Incr1(const Incr1 &);
+  Incr1 &operator=(const Incr1 &);
+  Incr1(Expr *p1);
+  ~Incr1();
+  virtual void accept(Visitor *v);
+  virtual Incr1 *clone() const;
+  void swap(Incr1 &);
+};
+
+class Decr1 : public Stmt
+{
+public:
+  Expr *expr_;
+
+  Decr1(const Decr1 &);
+  Decr1 &operator=(const Decr1 &);
+  Decr1(Expr *p1);
+  ~Decr1();
+  virtual void accept(Visitor *v);
+  virtual Decr1 *clone() const;
+  void swap(Decr1 &);
 };
 
 class Ret : public Stmt
@@ -476,6 +535,23 @@ public:
   virtual void accept(Visitor *v);
   virtual While *clone() const;
   void swap(While &);
+};
+
+class For : public Stmt
+{
+public:
+  Type *type_;
+  Ident ident_;
+  Expr *expr_;
+  Stmt *stmt_;
+
+  For(const For &);
+  For &operator=(const For &);
+  For(Type *p1, Ident p2, Expr *p3, Stmt *p4);
+  ~For();
+  virtual void accept(Visitor *v);
+  virtual For *clone() const;
+  void swap(For &);
 };
 
 class SExp : public Stmt
@@ -586,6 +662,20 @@ public:
   void swap(Str &);
 };
 
+class Array : public Type
+{
+public:
+  Type *type_;
+
+  Array(const Array &);
+  Array &operator=(const Array &);
+  Array(Type *p1);
+  ~Array();
+  virtual void accept(Visitor *v);
+  virtual Array *clone() const;
+  void swap(Array &);
+};
+
 class Fun : public Type
 {
 public:
@@ -614,6 +704,21 @@ public:
   virtual void accept(Visitor *v);
   virtual ETypeAnn *clone() const;
   void swap(ETypeAnn &);
+};
+
+class ELen : public Expr
+{
+public:
+  Expr *expr_;
+  Ident ident_;
+
+  ELen(const ELen &);
+  ELen &operator=(const ELen &);
+  ELen(Expr *p1, Ident p2);
+  ~ELen();
+  virtual void accept(Visitor *v);
+  virtual ELen *clone() const;
+  void swap(ELen &);
 };
 
 class EVar : public Expr
@@ -711,6 +816,36 @@ public:
   virtual void accept(Visitor *v);
   virtual EString *clone() const;
   void swap(EString &);
+};
+
+class ENewArr : public Expr
+{
+public:
+  Type *type_;
+  Expr *expr_;
+
+  ENewArr(const ENewArr &);
+  ENewArr &operator=(const ENewArr &);
+  ENewArr(Type *p1, Expr *p2);
+  ~ENewArr();
+  virtual void accept(Visitor *v);
+  virtual ENewArr *clone() const;
+  void swap(ENewArr &);
+};
+
+class EIndex : public Expr
+{
+public:
+  Expr *expr_1;
+  Expr *expr_2;
+
+  EIndex(const EIndex &);
+  EIndex &operator=(const EIndex &);
+  EIndex(Expr *p1, Expr *p2);
+  ~EIndex();
+  virtual void accept(Visitor *v);
+  virtual EIndex *clone() const;
+  void swap(EIndex &);
 };
 
 class Neg : public Expr
