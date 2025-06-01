@@ -60,3 +60,8 @@ State 80
   - Heap allocation with `new`
   - Pointer dereferencing (e.g., `xs->next`)
   - Null pointers
+
+### Optimization Study
+  - Mem2Reg (Promote memory to registers)
+  - GVN (Global Value Numbering)
+  - InstCombine (Instruction Combining)
