@@ -1,14 +1,23 @@
+
 -- programs ------------------------------------------------
 
 entrypoints Prog ;
 
 Program.   Prog ::= [TopDef] ;
 
+StructDef. TopDef ::= Type "{" [StructItem] "}" ";" ;
+
+PtrDef.    TopDef ::= "typedef" Type "*" Ident ";" ;
+
 FnDef.	   TopDef ::= Type Ident "(" [Arg] ")" Blk ;
+
+FnDef1.     TopDef ::= Ident Ident "(" [Arg] ")" Blk ;
 
 separator nonempty TopDef "" ;
 
 Argument.  Arg ::= Type Ident;
+
+Argument1. Arg ::= Ident Ident;
 
 separator  Arg "," ;
 
@@ -24,17 +33,25 @@ BStmt.     Stmt ::= Blk ;
 
 Decl.      Stmt ::= Type [Item] ";" ;
 
+Decl1.     Stmt ::= Ident [Item] ";" ;
+
+StructItemT. StructItem ::= Type Ident ";" ;
+
+StructItemP. StructItem ::= Ident Ident ";" ;
+
 NoInit.    Item ::= Ident ;
 
 Init.      Item ::= Ident "=" Expr ;
 
 separator nonempty Item "," ;
 
-Ass.       Stmt ::= Ident "=" Expr  ";" ;
+separator  StructItem "" ;
 
-Incr.      Stmt ::= Ident "++"  ";" ;
+Ass1.      Stmt ::= Expr "=" Expr ";" ;
 
-Decr.      Stmt ::= Ident "--"  ";" ;
+Incr1.     Stmt ::= Expr  "++"  ";" ;
+
+Decr1.     Stmt ::= Expr  "--"  ";" ;
 
 Ret.       Stmt ::= "return" Expr ";" ;
 
@@ -46,9 +63,13 @@ CondElse.  Stmt ::= "if" "(" Expr ")" Stmt "else" Stmt  ;
 
 While.     Stmt ::= "while" "(" Expr ")" Stmt ;
 
+For.       Stmt ::= "for" "(" Type Ident ":" Expr ")" Stmt ;
+
 SExp.      Stmt ::= Expr  ";" ;
 
 -- Types ---------------------------------------------------
+
+Ptr.       Type ::= "struct" Ident ;
 
 Int.       Type ::= "int" ;
 
@@ -58,11 +79,20 @@ Bool.      Type ::= "boolean" ;
 
 Void.      Type ::= "void" ;
 
+Str.	   Type ::= "string" ;
+
+Array.     Type ::= Type "[" "]" ;
+
 internal   Fun. Type ::= Type "(" [Type] ")" ;
 
 separator  Type "," ;
 
 -- Expressions ---------------------------------------------
+
+ETypeAnn.  Expr8 ::= "(" Expr ":" Type ")" ;
+
+ELen.      Expr7 ::= Expr6 "." Ident ;
+
 
 EVar.      Expr6 ::= Ident ;
 
@@ -78,6 +108,16 @@ EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
 
 EString.   Expr6 ::= String ;
 
+ENewArr.   Expr6 ::= "new" Type "[" Expr "]" ;
+
+ENewStruct. Expr6 ::= "new" Ident ;
+
+ENullPtr.   Expr6 ::= "(" Ident ")" "null" ;
+
+EDeref.    Expr6 ::= Expr6 "->" Ident ;
+
+EIndex.    Expr6 ::= Expr6 "[" Expr "]" ;
+
 Neg.       Expr5 ::= "-" Expr6 ;
 
 Not.       Expr5 ::= "!" Expr6 ;
@@ -92,7 +132,7 @@ EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
 
 EOr.       Expr ::= Expr1 "||" Expr ;
 
-coercions  Expr 6 ;
+coercions  Expr 8 ;
 
 separator  Expr "," ;
 
