@@ -56,15 +56,28 @@ int main(int argc, char ** argv)
   if (!parse_tree){
     throw std::runtime_error("hi");
   }
+/*         printf("\n[Abstract Syntax]\n");
+      ShowAbsyn *s = new ShowAbsyn();
+      printf("%s\n\n", s->show(parse_tree));
+      printf("[Linearized Tree]\n");
+      PrintAbsyn *p = new PrintAbsyn();
+      printf("%s\n\n", p->print(parse_tree)); */
   Skeleton checker;
   parse_tree->accept(&checker);
   }
-  catch(...){
-    std::cerr << "ERROR";
+  catch(std::runtime_error &e){
+/*     std::cerr << "ERROR: " << e.what() << std::endl; 
+ */    std::cerr << "ERROR";
     return 1;
   }
+/*         printf("\n[Abstract Syntax]\n");
+      ShowAbsyn *s = new ShowAbsyn();
+      printf("%s\n\n", s->show(parse_tree));
+      printf("[Linearized Tree]\n");
+      PrintAbsyn *p = new PrintAbsyn();
+      printf("%s\n\n", p->print(parse_tree)); */
   std::cerr << "OK";
-  CodeGen llvm;
-  parse_tree->accept(&llvm);
+   CodeGen llvm;
+  parse_tree->accept(&llvm); 
   return 0;
 }

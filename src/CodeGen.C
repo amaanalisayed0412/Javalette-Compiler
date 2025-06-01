@@ -1,4 +1,4 @@
-/*** BNFC-Generated Visitor Design Pattern Skeleton. ***/
+/*** BNFC-Generated Visitor Design Pattern CodeGen. ***/
 /* This implements the common visitor design pattern.
    Note that this method uses Visitor-traversal of lists, so
    List->accept() does NOT traverse the list. This allows different
@@ -15,6 +15,7 @@ void CodeGen::visitTopDef(TopDef *t) {} //abstract class
 void CodeGen::visitArg(Arg *t) {} //abstract class
 void CodeGen::visitBlk(Blk *t) {} //abstract class
 void CodeGen::visitStmt(Stmt *t) {} //abstract class
+void CodeGen::visitStructItem(StructItem *t) {} //abstract class
 void CodeGen::visitItem(Item *t) {} //abstract class
 void CodeGen::visitType(Type *t) {} //abstract class
 void CodeGen::visitExpr(Expr *t) {} //abstract class
@@ -24,25 +25,29 @@ void CodeGen::visitRelOp(RelOp *t) {} //abstract class
 
 enum InferredType1 { TINT, TDOUBLE, TBOOL, TSTR, TVOID, TINTA, TDOUBLEA, TBOOLA, TUNKNOWN };
 
-InferredType1 infer1(Type *t) {
-    if (dynamic_cast<Int*>(t)) return TINT;
-    if (dynamic_cast<Doub*>(t)) return TDOUBLE;
-    if (dynamic_cast<Bool*>(t)) return TBOOL;
-    if (dynamic_cast<Str*>(t)) return TSTR;
-    if (dynamic_cast<Void*>(t)) return TVOID;
+std::string infer1(Type *t) {
+    if (dynamic_cast<Int*>(t)) return "int";
+    if (dynamic_cast<Doub*>(t)) return "double";
+    if (dynamic_cast<Bool*>(t)) return "bool";
+    if (dynamic_cast<Str*>(t)) return "str";
+    if (dynamic_cast<Void*>(t)) return "void";
+    if (dynamic_cast<Ptr*>(t)) {
+        Ptr* ptr = dynamic_cast<Ptr*>(t);
+        return ptr->ident_;
+    }
     if (dynamic_cast<Array*>(t)) {
         Array* arr = dynamic_cast<Array*>(t);
-        if (dynamic_cast<Int*>(arr->type_)) return TINTA;
-        if (dynamic_cast<Doub*>(arr->type_)) return TDOUBLEA;
-        if (dynamic_cast<Bool*>(arr->type_)) return TBOOLA;
-        return TUNKNOWN; // Unknown array type
+        if (dynamic_cast<Int*>(arr->type_)) return "inta";
+        if (dynamic_cast<Doub*>(arr->type_)) return "doublea";
+        if (dynamic_cast<Bool*>(arr->type_)) return "boola";
+        return "unknown"; // Unknown array type
     }
-    return TUNKNOWN;
+    return "unknown";
 }
 
-InferredType1 last_type1 = TUNKNOWN;
-InferredType1 decl_type1 = TUNKNOWN;
-InferredType1 ret_type1 = TUNKNOWN;
+std::string last__type1 = "unknown";
+std::string decl__type1 = "unknown";
+std::string ret__type1 = "unknown";
 
 std::map<std::string, std::string> globalStrings;
 int stringCounter = 0;
@@ -70,6 +75,10 @@ int num_passes1 = 0;
 
 std::vector<std::unordered_map<std::string, std::string>> symbolTableStack;
 
+std::map<std::string, std::vector<std::string>> structFields;
+
+std::map<std::string, std::vector<std::string>> structFieldTypes;
+
 std::vector<std::string> liststmt;
 
 int numpass = 1;
@@ -79,33 +88,33 @@ std::string declared_type = "";
 std::string last__type = "";
 
 
-std::string llvmtype(InferredType1 t){
-  if (t == TINT){
+std::string llvmtype(std::string t){
+  if (t == "int"){
     return "i32";
   }
-  else if (t == TDOUBLE){
+  else if (t == "double"){
     return "double";
   }
-  else if (t == TBOOL){
+  else if (t == "bool"){
     return "i1";
   }
-  else if (t == TVOID){
+  else if (t == "void"){
     return "void";
   }
-  else if (t == TSTR){
+  else if (t == "str"){
     return "i8*";
   }
-  else if (t == TINTA){
+  else if (t == "inta"){
     return "i32*";
   }
-  else if (t == TDOUBLEA){
+  else if (t == "doublea"){
     return "double*";
   }
-  else if (t == TBOOLA){
+  else if (t == "boola"){
     return "i1*";
   }
   else{
-    return "i32";
+    return t;
   }
 }
 
@@ -117,6 +126,8 @@ std::vector<std::string> argstrings;
 std::string lastPtr;
 
 std::vector<std::vector<std::string>> funcargsreg;
+
+std::vector<std::string> fieldTypes;
 
 std::string join(const std::vector<std::string>& parts, const std::string& sep) {
     std::ostringstream os;
@@ -134,6 +145,20 @@ std::string lookupvar(Ident var){
         }
     }
   return "";
+}
+
+int getFieldIndex(const std::string structName, const std::string fieldName)
+{
+  if (structFields.find(structName) == structFields.end()) {
+    std::cerr << "Error: unknown struct '" << structName << "'\n";
+    exit(1);
+  }
+
+  const std::vector<std::string>& fields = structFields[structName];
+  for (size_t i = 0; i < fields.size(); ++i) {
+    if (fields[i] == fieldName)
+      return static_cast<int>(i);
+  }
 }
 
 void CodeGen::emit(std::vector<std::string> lines) {
@@ -171,6 +196,12 @@ void emitGlobalStrings() {
     }
 }
 
+std::map<std::string, std::string> ptrEnv1;
+
+std::vector<std::string> fields;
+
+std::vector<std::string> fieldTypes_;
+
 
 void CodeGen::visitProgram(Program *program)
 {
@@ -187,6 +218,71 @@ void CodeGen::visitProgram(Program *program)
   num_passes1 += 1;
 
   program->listtopdef_->accept(this);
+
+}
+
+void CodeGen::visitStructDef(StructDef *struct_def)
+{
+  /* Code For StructDef Goes Here */
+  if (num_passes1 == 0){
+    struct_def->type_->accept(this);
+    std::string structName = last__type1;
+    
+
+    struct_def->liststructitem_->accept(this);
+
+    
+  }
+  if (num_passes1 == 1){
+    struct_def->type_->accept(this);
+
+    std::string structName = last__type1;
+    struct_def->liststructitem_->accept(this);
+
+    structFieldTypes[structName] = fieldTypes_;
+    structFields[structName] = fields;
+
+    fields.clear();
+    std::string llvmStruct = "%struct." + structName + " = type { " + join(fieldTypes, ", ") + " }";
+    emit({llvmStruct});
+
+  }
+  
+  // Collect field types
+  /* for (auto item : struct_def->liststructitem_) {
+    item->accept(this); // sets `lastType` to a string like "i32" or "%struct.X*"
+    fieldTypes.push_back(lastType);
+  }
+
+  // Generate struct definition
+  std::string llvmStruct = "%struct." + structName + " = type { ";
+  for (size_t i = 0; i < fieldTypes.size(); ++i) {
+    llvmStruct += fieldTypes[i];
+    if (i + 1 != fieldTypes.size())
+      llvmStruct += ", ";
+  }
+  llvmStruct += " }";
+
+  // Output or store it
+  output << llvmStruct << "\n";
+
+  // Remember the struct type
+  structTypeMap[structName] = "%struct." + structName;
+
+
+  struct_def->type_->accept(this);
+  struct_def->liststructitem_->accept(this); */
+
+}
+
+void CodeGen::visitPtrDef(PtrDef *ptr_def)
+{
+  /* Code For PtrDef Goes Here */
+  if (num_passes1 == 0){
+    ptr_def->type_->accept(this);
+    visitIdent(ptr_def->ident_);
+    ptrEnv1[ptr_def->ident_] = last__type1 + "*";
+  }
 
 }
 
@@ -267,7 +363,7 @@ void CodeGen::visitFnDef(FnDef *fn_def)
   }
   else{
     ret_type = infer(fn_def->type_);
-    if (ret_type != TVOID){
+    if (ret_type != "void"){
       fn_def->blk_->accept(this);
     }
 
@@ -277,6 +373,47 @@ void CodeGen::visitFnDef(FnDef *fn_def)
     AlwaysReturns = false;
   } */ 
 }
+
+void CodeGen::visitFnDef1(FnDef1 *fn_def)
+{
+  /* Code For FnDef1 Goes Here */
+  if (num_passes1 == 1){
+  std::string stmt;
+
+  stmt = "define ";
+  stmt += "%struct." + ptrEnv1[fn_def->ident_1];
+  stmt += " @";
+  stmt += fn_def->ident_2;
+  stmt += "(";
+  argstrings.clear();
+  contextStack_llvm.push_back({});
+  fn_def->listarg_->accept(this);
+  numpass += 1;
+  stmt += join(argstrings, ", ");
+  stmt += ") {";
+
+  liststmt.push_back(stmt);
+  liststmt.push_back("entry:");
+  lastLabel = "entry";
+
+  fn_def->listarg_->accept(this);
+  
+  numpass -=1;
+
+  fn_def->blk_->accept(this);
+
+  liststmt.push_back("}");
+  emit(liststmt);
+  contextStack_llvm.pop_back();
+  }
+  else{
+
+    fn_def->blk_->accept(this);
+  }
+
+}
+
+
 
 void CodeGen::visitArgument(Argument *argument)
 {
@@ -312,6 +449,27 @@ void CodeGen::visitArgument(Argument *argument)
   else{
 
   } */
+}
+
+void CodeGen::visitArgument1(Argument1 *argument)
+{
+  /* Code For Argument1 Goes Here */
+  if (num_passes1 == 1){
+    if (numpass == 1){
+      argstrings.push_back("%struct." + ptrEnv1[argument->ident_1] + " %" + argument->ident_2);
+    }
+    else if (numpass == 2){
+      std::string allocName = new_reg();  // e.g., %1
+
+      liststmt.push_back("  " + allocName + " = alloca " + "%struct." + ptrEnv1[argument->ident_1]);
+      liststmt.push_back("  store %struct." + ptrEnv1[argument->ident_1] + " %" + argument->ident_2 + ", " + "%struct." + ptrEnv1[argument->ident_1] + "* " + allocName);
+
+      // Store in context for later variable use
+      contextStack_llvm.back()[argument->ident_2] = allocName;
+    }
+  }
+
+
 }
 
 void CodeGen::visitBlock(Block *block)
@@ -354,94 +512,84 @@ void CodeGen::visitDecl(Decl *decl)
   /* Code For Decl Goes Here */
   if (num_passes1 == 1){
   declared_type = llvmtype(infer1(decl->type_));
+  if (declared_type != "i32" and declared_type != "double" and declared_type != "i1" and declared_type != "void" and declared_type != "i32*" 
+      and declared_type != "double*" and declared_type != "i1*" and declared_type != "i8" and declared_type != "i8*"){
+    declared_type = "%struct." + ptrEnv1[declared_type];  // e.g., "%struct.X" for struct types
+  }
   decl->listitem_->accept(this);
   }
 }
 
-void CodeGen::visitAss(Ass *ass)
+void CodeGen::visitDecl1(Decl1 *decl)
 {
-  /* Code For Ass Goes Here */
+  /* Code For Decl1 Goes Here */
   if (num_passes1 == 1){
-  std::string ptr = lookupvar(ass->ident_);
-  ass->expr_->accept(this);
-  std::string rhs = lastValue;
-  std::string t = last__type;
-
-  liststmt.push_back("  store " + t + " " + rhs + ", " + t + "* " + ptr);
+   declared_type = "%struct." + ptrEnv1[decl->ident_];
+    decl->listitem_->accept(this);
   }
-  /* if (num_passes1 == 1){
-    visitIdent(ass->ident_);
-    InferredType1 type1 = last_type;
-    ass->expr_->accept(this);
-    InferredType1 type2 = last_type;
+  visitIdent(decl->ident_);
+ 
 
-    if (type1 != type2){
-      throw TypeError("Incorrect literal type assigned to " + ass->ident_);
-
-    }
-  
-  } */
-  
 }
+
+
 
 void CodeGen::visitAss1(Ass1 *ass)
 {
   /* Code For Ass1 Goes Here */
 
-  
-  ass->expr_1->accept(this);
+  if (dynamic_cast<EVar*>(ass->expr_1) || dynamic_cast<EIndex*>(ass->expr_1) || dynamic_cast<EDeref*>(ass->expr_1)){
+    if (num_passes1 == 1){
+      std::string ptr = lastPtr;
+      ass->expr_1->accept(this);
+  ass->expr_2->accept(this);
+  std::string rhs = lastValue;
+
+  std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
+  liststmt.push_back("  store " + s + " " + rhs + ", " + s + "* " + ptr);
+  }
+  }
+  else{
+    if (num_passes1 == 1){
+      ass->expr_1->accept(this);
   std::string gep = lastPtr;
   std::string llvmType1 = last__type;
+  std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
+  std::string s2 = s;
   ass->expr_2->accept(this);
   std::string valueReg = lastValue;
 
   std::string llvmType = last__type;
+  s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
 
   // Store the value into the computed address
-  liststmt.push_back("  store " + llvmType + " " + valueReg + ", " + llvmType1 + "* " + gep + "");
-
-}
-
-void CodeGen::visitIncr(Incr *incr)
-{
-  /* Code For Incr Goes Here */
-  if (num_passes1 == 1){
-  std::string regName = lookupvar(incr->ident_);
-  std::string type_str = llvmtype(TINT);
-
-  std::string temp1 = new_reg();
-  liststmt.push_back("  " + temp1 + " = load " + type_str + ", " + type_str + "* " + regName);
-
-  std::string temp2 = new_reg();
-  liststmt.push_back("  " + temp2 + " = add " + type_str + " " + temp1 + ", 1");
-
-  liststmt.push_back("  store " + type_str + " " + temp2 + ", " + type_str + "* " + regName);  
+  liststmt.push_back("  store " + s + " " + valueReg + ", " + s2 + "* " + gep + "");
+    }
   }
+  
+
 }
 
-void CodeGen::visitDecr(Decr *decr)
-{
-  /* Code For Decr Goes Here */
-  if (num_passes1 == 1){
-  std::string regName = lookupvar(decr->ident_);
-  std::string type_str = llvmtype(TINT);
 
-  std::string temp1 = new_reg();
-  liststmt.push_back("  " + temp1 + " = load " + type_str + ", " + type_str + "* " + regName);
-
-  std::string temp2 = new_reg();
-  liststmt.push_back("  " + temp2 + " = sub " + type_str + " " + temp1 + ", 1");
-
-  liststmt.push_back("  store " + type_str + " " + temp2 + ", " + type_str + "* " + regName);  
-  }
-}
 
 
 void CodeGen::visitIncr1(Incr1 *incr)
 {
   /* Code For Incr1 Goes Here */
   if (num_passes1 == 1){
-    last__type = llvmtype(TINT);
+    last__type = llvmtype("int");
     incr->expr_->accept(this);
   std::string elemPtr = lastPtr;  // Pointer to a[i] produced by EIndex
   std::string val = lastValue;   // Value of a[i]
@@ -454,10 +602,12 @@ void CodeGen::visitIncr1(Incr1 *incr)
   
 }
 
+
+
 void CodeGen::visitDecr1(Decr1 *decr)
 {
   /* Code For Decr1 Goes Here */
-  last__type = llvmtype(TINT);
+  last__type = llvmtype("int");
   if (num_passes1 == 1){
   decr->expr_->accept(this);
   std::string elemPtr = lastPtr;  // Pointer to a[i] produced by EIndex
@@ -476,8 +626,13 @@ void CodeGen::visitRet(Ret *ret)
   /* Code For Ret Goes Here */
   if (num_passes1 == 1){
   ret->expr_->accept(this);
-  std::string typ = last__type;
-  liststmt.push_back("  ret " + typ + " " + lastValue);
+
+  std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
+  liststmt.push_back("  ret " + s + " " + lastValue);
   }
 }
 
@@ -664,6 +819,35 @@ void CodeGen::visitSExp(SExp *s_exp)
   }
 }
 
+void CodeGen::visitStructItemT(StructItemT *struct_item_t)
+{
+  /* Code For StructItemT Goes Here */
+  if (num_passes1 == 0){
+    
+  }
+  if (num_passes1 == 1){
+    fields.push_back(struct_item_t->ident_);
+    fieldTypes_.push_back(llvmtype(infer1(struct_item_t->type_)));
+    last__type1 = llvmtype(infer1(struct_item_t->type_));
+    fieldTypes.push_back(last__type1);
+  }
+
+}
+
+void CodeGen::visitStructItemP(StructItemP *struct_item_p)
+{
+  /* Code For StructItemP Goes Here */
+  if (num_passes1 == 0){
+    
+  }
+  if (num_passes1 == 1){
+    fields.push_back(struct_item_p->ident_2);
+    fieldTypes_.push_back("%struct." + ptrEnv1[struct_item_p->ident_1]);
+    last__type1 = "%struct." + ptrEnv1[struct_item_p->ident_1];
+    fieldTypes.push_back(last__type1);
+  }
+}
+
 void CodeGen::visitNoInit(NoInit *no_init)
 {
   /* Code For NoInit Goes Here */
@@ -693,18 +877,21 @@ void CodeGen::visitNoInit(NoInit *no_init)
     visitENewArr(new ENewArr(new Bool, new ELitInt(0)));
     zero_value = lastValue;
   }
-  else {
-    zero_value = "zeroinitializer"; // fallback (for structs/arrays etc.)
-  }
+  contextStack_llvm.back()[varName] = allocName;
+
   if (declared_type == "i32*" || declared_type == "double*" || declared_type == "i1*") {
     liststmt.push_back("  " + allocName + " = alloca " + "i32*");
     liststmt.push_back("  store i32* " + zero_value + ", " + "i32** " + allocName);
   }
-  else{
+  else if (declared_type == "i32" || declared_type == "double" || declared_type == "i1") {
     liststmt.push_back("  " + allocName + " = alloca " + declared_type);
     liststmt.push_back("  store " + declared_type+ " " + zero_value + ", " + declared_type + "* " + allocName);
   }
-  contextStack_llvm.back()[varName] = allocName;
+  else{
+    liststmt.push_back("  " + allocName + " = alloca " + declared_type);
+  }
+
+  
   }
   /* if (num_passes1 == 1){
     visitIdent(no_init->ident_);
@@ -759,11 +946,22 @@ void CodeGen::visitInit(Init *init)
   
 }
 
+void CodeGen::visitPtr(Ptr *ptr)
+{
+  /* Code For Ptr Goes Here */
+  if (num_passes1 == 0){
+    last__type1 = ptr->ident_;
+  }
+  if (num_passes1 == 1){
+    last__type1 = ptr->ident_;
+  }
+}
+
 void CodeGen::visitInt(Int *int_)
 {
   /* Code For Int Goes Here */
   if (num_passes1 == 1){
-  last_type1 = TINT;
+  last__type1 = "int";
   }
 }
 
@@ -771,7 +969,7 @@ void CodeGen::visitDoub(Doub *doub)
 {
   /* Code For Doub Goes Here */
   if (num_passes1 == 1){
-  last_type1 = TDOUBLE;
+  last__type1 = "double";
   }
 }
 
@@ -779,7 +977,7 @@ void CodeGen::visitBool(Bool *bool_)
 {
   /* Code For Bool Goes Here */
   if (num_passes1 == 1){
-  last_type1 = TBOOL;
+  last__type1 = "bool";
   }
 }
 
@@ -788,14 +986,14 @@ void CodeGen::visitVoid(Void *void_)
 {
   /* Code For Void Goes Here */
   if (num_passes1 == 1){
-  last_type1 = TVOID;
+  last__type1 = "void";
   }
 }
 
 void CodeGen::visitStr(Str *str)
 {
   /* Code For Str Goes Here */
-  last_type1 = TSTR;
+  last__type1 = "str";
 }
 
 void CodeGen::visitArray(Array *array)
@@ -813,14 +1011,24 @@ void CodeGen::visitFun(Fun *fun)
   }
 }
 
+
 void CodeGen::visitETypeAnn(ETypeAnn *e_type_ann)
 {
   /* Code For ETypeAnn Goes Here */
   if (num_passes1 == 1){
   last__type = llvmtype(infer1(e_type_ann->type_));
+  if (dynamic_cast<Ptr*>(e_type_ann->type_)){
+    Ptr* ptr = dynamic_cast<Ptr*>(e_type_ann->type_);
+    last__type = ptr->ident_;  // e.g., "i32*" for pointer types
+  }
   e_type_ann->expr_->accept(this);
   e_type_ann->type_->accept(this);
   last__type = llvmtype(infer1(e_type_ann->type_));
+  if (dynamic_cast<Ptr*>(e_type_ann->type_)){
+    Ptr* ptr = dynamic_cast<Ptr*>(e_type_ann->type_);
+    last__type = ptr->ident_;  // e.g., "i32*" for pointer types
+  }
+  
   }
   else{
     e_type_ann->expr_->accept(this);
@@ -831,15 +1039,20 @@ void CodeGen::visitEVar(EVar *e_var)
 {
   /* Code For EVar Goes Here */
   if (num_passes1 == 1){
-  
+  std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
   std::string ptr = lookupvar(e_var->ident_);  // get alloca'd pointer from symbol table
   std::string temp = new_reg();
-  if (last__type == "i32*" || last__type == "double*" || last__type == "i1*") {
+  if (s == "i32*" || s == "double*" || s == "i1*") {
     liststmt.push_back("  " + temp + " = load i32*, i32** " + ptr);
   } else {
-  liststmt.push_back("  " + temp + " = load " + last__type + ", " + last__type + "* " + ptr);
+  liststmt.push_back("  " + temp + " = load " + s + ", " + s + "* " + ptr);
   }
   lastValue = temp;  
+  lastPtr = ptr;  // Store the pointer for later use
   }
 }
 
@@ -881,6 +1094,10 @@ void CodeGen::visitEApp(EApp *e_app)
   /* Code For EApp Goes Here */
   if (num_passes1 == 1){
   std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
   e_app->listexpr_->accept(this);
   if (s == "void"){
   	if (e_app->ident_ == "printString"){
@@ -898,6 +1115,7 @@ void CodeGen::visitEApp(EApp *e_app)
 	  liststmt.push_back("  " + temp + " = call " + s + " @" + e_app->ident_ + "(" + join(funcargsreg.back(), ", ") + ")");
 	  funcargsreg.pop_back();
 	  lastValue = temp;
+    lastPtr = temp;
   }
   }
   else{
@@ -968,15 +1186,82 @@ void CodeGen::visitENewArr(ENewArr *e_new_arr)
     liststmt.push_back("  " + finalPtr + " = bitcast i8* " + dataPtr + " to " + llvmType + "*");
 
     lastValue = arrPtr;
-    if (infer1(e_new_arr->type_) == TINT){
-      last__type = TINTA;
+    if (infer1(e_new_arr->type_) == "int"){
+      last__type = "inta";
     }
-    else if (infer1(e_new_arr->type_) == TDOUBLE){
-      last__type = TDOUBLEA;
+    else if (infer1(e_new_arr->type_) == "double"){
+      last__type = "doublea";
     }
-    else if (infer1(e_new_arr->type_) == TBOOL){
-      last__type = TBOOLA;
+    else if (infer1(e_new_arr->type_) == "bool"){
+      last__type = "boola";
     }
+  }
+}
+
+void CodeGen::visitENewStruct(ENewStruct *e_new_struct)
+{
+  /* Code For ENewStruct Goes Here */
+
+  std::string structName = e_new_struct->ident_;
+  std::string structTy = "%struct." + structName;
+
+  // Assume all allocations use malloc
+  std::string reg_malloc = new_reg();
+  std::string size_reg = new_reg();
+
+  // Generate IR for malloc(sizeof(%struct.Name))
+  liststmt.push_back("  " + size_reg + " = getelementptr " + structTy + ", " + structTy + "* null, i32 1");
+  std::string size_int = new_reg();
+  liststmt.push_back("  " + size_int + " = ptrtoint " + structTy + "* " + size_reg + " to i32");
+  liststmt.push_back("  " + reg_malloc + " = call i8* @malloc(i32 " + size_int + ")");
+  
+  // Cast i8* to struct pointer
+  lastPtr = new_reg();
+  liststmt.push_back("  " + lastPtr + " = bitcast i8* " + reg_malloc + " to " + structTy + "*");
+  lastValue = lastPtr;  
+
+}
+
+void CodeGen::visitENullPtr(ENullPtr *e_null_ptr)
+{
+  /* Code For ENullPtr Goes Here */
+
+  std::string ptrType = "%struct." + ptrEnv1[e_null_ptr->ident_];
+  lastPtr = new_reg();
+  liststmt.push_back("  " + lastPtr + " = bitcast i8* null to " + ptrType);
+  lastValue = lastPtr;
+}
+
+void CodeGen::visitEDeref(EDeref *e_deref)
+{
+  /* Code For EDeref Goes Here */
+  if (num_passes1 == 1){
+  e_deref->expr_->accept(this);
+  std::string base_ptr = lastValue;
+
+  // Determine struct type and field index
+  std::string structName = ptrEnv1[last__type];
+  std::string fieldName = e_deref->ident_;
+
+  structName.pop_back();
+
+
+  int fieldIndex = getFieldIndex(structName, fieldName); // You must implement this helper
+
+  std::string structName1 = structName;
+
+  // Get field pointer
+  std::string gep_reg = new_reg();
+  liststmt.push_back("  " + gep_reg + " = getelementptr %struct." + structName1 + ", %struct." + structName1 +
+                     "* " + base_ptr + ", i32 0, i32 " + std::to_string(fieldIndex));
+
+  // Load value
+  std::string finreg = new_reg();
+  std::string fieldT = structFieldTypes[structName][fieldIndex]; // You should implement this
+  liststmt.push_back("  " + finreg+ " = load " + fieldT + ", " + fieldT + "* " + gep_reg);
+
+  lastPtr = gep_reg; 
+  lastValue = finreg;
   }
 }
 
@@ -1018,6 +1303,8 @@ void CodeGen::visitELen(ELen *e_len)
   lastValue = length;
 
 }
+
+
 
 void CodeGen::visitNeg(Neg *neg)
 {
@@ -1132,6 +1419,7 @@ void CodeGen::visitERel(ERel *e_rel)
   if (num_passes1 == 1){
   e_rel->expr_1->accept(this);
   std::string t = last__type;
+  
   std::string lhs = lastValue;
   e_rel->expr_2->accept(this);
   std::string rhs = lastValue;
@@ -1187,8 +1475,12 @@ void CodeGen::visitERel(ERel *e_rel)
     	op = "icmp ne";
     }
   }
-
-  liststmt.push_back("  " + temp + " = " + op + " " + last__type + " " + lhs + ", " + rhs);
+  std::string s = last__type;
+  if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+      and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+    s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+  }
+  liststmt.push_back("  " + temp + " = " + op + " " + s + " " + lhs + ", " + rhs);
   lastValue = temp;
   }
 
@@ -1356,6 +1648,23 @@ void CodeGen::visitListArg(ListArg *list_arg)
     }
 }
 
+void CodeGen::visitListStructItem(ListStructItem *list_struct_item)
+{
+  if (num_passes1 == 0){
+  for (ListStructItem::iterator i = list_struct_item->begin() ; i != list_struct_item->end() ; ++i)
+  {
+    (*i)->accept(this);
+  }
+  }
+  if (num_passes1 == 1){
+    fieldTypes.clear();
+  for (ListStructItem::iterator i = list_struct_item->begin() ; i != list_struct_item->end() ; ++i)
+  {
+    (*i)->accept(this);
+  }
+  }
+}
+
 void CodeGen::visitListStmt(ListStmt *list_stmt)
 {
   if (num_passes1 == 0){
@@ -1404,7 +1713,12 @@ void CodeGen::visitListExpr(ListExpr *list_expr)
   for (ListExpr::iterator i = list_expr->begin() ; i != list_expr->end() ; ++i)
   {
     (*i)->accept(this);
-    funcargsreg.back().push_back(last__type + " " + lastValue);
+    std::string s = last__type;
+    if (s != "i32" and s != "double" and s != "i1" and s != "void" and s != "i32*" 
+        and s != "double*" and s != "i1*" and s != "i8" and s != "i8*"){
+      s = "%struct." + ptrEnv1[s];  // e.g., "%struct.X" for struct types
+    }
+    funcargsreg.back().push_back(s + " " + lastValue);
   }
   }
   else{
@@ -1419,7 +1733,7 @@ void CodeGen::visitListExpr(ListExpr *list_expr)
 void CodeGen::visitInteger(Integer x)
 {
   /* Code for Integer Goes Here */
-  last_type1 = TINT;
+  last__type1 = "int";
 }
 
 void CodeGen::visitChar(Char x)
@@ -1431,13 +1745,13 @@ void CodeGen::visitChar(Char x)
 void CodeGen::visitDouble(Double x)
 {
   /* Code for Double Goes Here */
-  last_type1 = TDOUBLE;
+  last__type1 = "double";
 }
 
 void CodeGen::visitString(String x)
 {
   /* Code for String Goes Here */
-  last_type1 = TSTR;
+  last__type1 = "str";
 }
 
 void CodeGen::visitIdent(Ident x)

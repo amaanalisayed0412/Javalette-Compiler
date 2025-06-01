@@ -5,11 +5,19 @@ entrypoints Prog ;
 
 Program.   Prog ::= [TopDef] ;
 
+StructDef. TopDef ::= Type "{" [StructItem] "}" ";" ;
+
+PtrDef.    TopDef ::= "typedef" Type "*" Ident ";" ;
+
 FnDef.	   TopDef ::= Type Ident "(" [Arg] ")" Blk ;
+
+FnDef1.     TopDef ::= Ident Ident "(" [Arg] ")" Blk ;
 
 separator nonempty TopDef "" ;
 
 Argument.  Arg ::= Type Ident;
+
+Argument1. Arg ::= Ident Ident;
 
 separator  Arg "," ;
 
@@ -25,19 +33,21 @@ BStmt.     Stmt ::= Blk ;
 
 Decl.      Stmt ::= Type [Item] ";" ;
 
+Decl1.     Stmt ::= Ident [Item] ";" ;
+
+StructItemT. StructItem ::= Type Ident ";" ;
+
+StructItemP. StructItem ::= Ident Ident ";" ;
+
 NoInit.    Item ::= Ident ;
 
 Init.      Item ::= Ident "=" Expr ;
 
 separator nonempty Item "," ;
 
-Ass.       Stmt ::= Ident "=" Expr  ";" ;
+separator  StructItem "" ;
 
 Ass1.      Stmt ::= Expr "=" Expr ";" ;
-
-Incr.      Stmt ::= Ident "++"  ";" ;
-
-Decr.      Stmt ::= Ident "--"  ";" ;
 
 Incr1.     Stmt ::= Expr  "++"  ";" ;
 
@@ -58,6 +68,8 @@ For.       Stmt ::= "for" "(" Type Ident ":" Expr ")" Stmt ;
 SExp.      Stmt ::= Expr  ";" ;
 
 -- Types ---------------------------------------------------
+
+Ptr.       Type ::= "struct" Ident ;
 
 Int.       Type ::= "int" ;
 
@@ -81,6 +93,7 @@ ETypeAnn.  Expr8 ::= "(" Expr ":" Type ")" ;
 
 ELen.      Expr7 ::= Expr6 "." Ident ;
 
+
 EVar.      Expr6 ::= Ident ;
 
 ELitInt.   Expr6 ::= Integer ;
@@ -96,6 +109,12 @@ EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
 EString.   Expr6 ::= String ;
 
 ENewArr.   Expr6 ::= "new" Type "[" Expr "]" ;
+
+ENewStruct. Expr6 ::= "new" Ident ;
+
+ENullPtr.   Expr6 ::= "(" Ident ")" "null" ;
+
+EDeref.    Expr6 ::= Expr6 "->" Ident ;
 
 EIndex.    Expr6 ::= Expr6 "[" Expr "]" ;
 
