@@ -5,6 +5,7 @@
 #include "Absyn.H"
 #include <iostream>
 #include <map>
+#include <set>
 
 
 class Skeleton : public Visitor
@@ -15,6 +16,7 @@ public:
   void visitArg(Arg *p);
   void visitBlk(Blk *p);
   void visitStmt(Stmt *p);
+  void visitStructItem(StructItem *p);
   void visitItem(Item *p);
   void visitType(Type *p);
   void visitExpr(Expr *p);
@@ -22,18 +24,22 @@ public:
   void visitMulOp(MulOp *p);
   void visitRelOp(RelOp *p);
   void visitProgram(Program *p);
+  void visitStructDef(StructDef *p);
+  void visitPtrDef(PtrDef *p);
   void visitFnDef(FnDef *p);
+  void visitFnDef1(FnDef1 *p);
   void visitArgument(Argument *p);
+  void visitArgument1(Argument1 *p);
   void visitBlock(Block *p);
   void visitEmpty(Empty *p);
   void visitBStmt(BStmt *p);
   void visitDecl(Decl *p);
+  void visitDecl1(Decl1 *p);
+  void visitStructItemT(StructItemT *p);
+  void visitStructItemP(StructItemP *p);
   void visitNoInit(NoInit *p);
   void visitInit(Init *p);
-  void visitAss(Ass *p);
   void visitAss1(Ass1 *p);
-  void visitIncr(Incr *p);
-  void visitDecr(Decr *p);
   void visitIncr1(Incr1 *p);
   void visitDecr1(Decr1 *p);
   void visitRet(Ret *p);
@@ -43,6 +49,7 @@ public:
   void visitWhile(While *p);
   void visitFor(For *p);
   void visitSExp(SExp *p);
+  void visitPtr(Ptr *p);
   void visitInt(Int *p);
   void visitDoub(Doub *p);
   void visitBool(Bool *p);
@@ -51,6 +58,7 @@ public:
   void visitArray(Array *p);
   void visitFun(Fun *p);
   void visitETypeAnn(ETypeAnn *p);
+  void visitELen(ELen *p);
   void visitEVar(EVar *p);
   void visitELitInt(ELitInt *p);
   void visitELitDoub(ELitDoub *p);
@@ -59,8 +67,10 @@ public:
   void visitEApp(EApp *p);
   void visitEString(EString *p);
   void visitENewArr(ENewArr *p);
+  void visitENewStruct(ENewStruct *p);
+  void visitENullPtr(ENullPtr *p);
+  void visitEDeref(EDeref *p);
   void visitEIndex(EIndex *p);
-  void visitELen(ELen *p);
   void visitNeg(Neg *p);
   void visitNot(Not *p);
   void visitEMul(EMul *p);
@@ -83,6 +93,7 @@ public:
   void visitListArg(ListArg *p);
   void visitListStmt(ListStmt *p);
   void visitListItem(ListItem *p);
+  void visitListStructItem(ListStructItem *p);
   void visitListType(ListType *p);
   void visitListExpr(ListExpr *p);
 
